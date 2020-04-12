@@ -143,14 +143,6 @@ void bmp280_ctrl_loop(void *pvParameter)
                 }            
             }
         }
-
-/*
-    // An external function shall invoke this function to post an event to be processed by events handler
-    // Hay que controlar los errores y meterlo en un bucle en caso de que la cola esté llena y no pueda procesarse.
-    //ESP_ERROR_CHECK(esp_event_post_to(loop_to_post_to, BMP280_EVENTS, BMP280_EVENT_00, NULL, 0, portMAX_DELAY));
-    //ESP_ERROR_CHECK(esp_event_post_to(loop_to_post_to, BMP280_EVENTS, BMP280_EVENT_00, p_data_pointer, sizeof(p_data_pointer), portMAX_DELAY));    
-    //ESP_ERROR_CHECK(esp_event_post_to(event_loop_h, BMP280_EVENTS, ESP_EVENT_xxxx, NULL, 0, portMAX_DELAY));
-*/
 }
 
 
@@ -232,4 +224,13 @@ void bmp280_test_loop(void *pvParameter)
 
 		}
 }
+
+
+/*
+    // An external function shall invoke this function to post an event to be processed by events handler
+    // Hay que controlar los errores y meterlo en un bucle en caso de que la cola esté llena y no pueda procesarse.
+    //ESP_ERROR_CHECK(esp_event_post_to(loop_to_post_to, BMP280_EVENTS, BMP280_EVENT_00, NULL, 0, portMAX_DELAY));
+    //ESP_ERROR_CHECK(esp_event_post_to(loop_to_post_to, BMP280_EVENTS, BMP280_EVENT_00, p_data_pointer, sizeof(p_data_pointer), portMAX_DELAY));    
+    //ESP_ERROR_CHECK(esp_event_post_to(event_loop_h, BMP280_EVENTS, ESP_EVENT_xxxx, NULL, 0, portMAX_DELAY));
+*/
 

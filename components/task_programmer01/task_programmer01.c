@@ -79,10 +79,10 @@ static struct pattern_weekly pw_predef[PW_PREDEF_ELEMENTS] = {
   {2,1,5},    // Casa: trabajo L-V, confort S-D
   {2,2,5},    // Casa: trabajo L-V, confort S-D
   {2,3,5},    // Casa: trabajo L-V, confort S-D
-  {2,4,6},    // Casa: trabajo L-V, confort S-D
-  {2,5,6},    // Casa: trabajo L-V, confort S-D
-  {2,6,5},    // Casa: trabajo L-V, confort S-D
-  {2,7,5},    // Casa: trabajo L-V, confort S-D
+  {2,4,5},    // Casa: trabajo L-V, confort S-D
+  {2,5,5},    // Casa: trabajo L-V, confort S-D
+  {2,6,6},    // Casa: trabajo L-V, confort S-D
+  {2,7,6},    // Casa: trabajo L-V, confort S-D
   {3,1,6},    // Casa: Ocupación L-D
   {3,2,6},    // Casa: Ocupación L-D
   {3,3,6},    // Casa: Ocupación L-D

@@ -36,7 +36,6 @@
 
 #define DEBUG_EVENTS 0              // 0:NO DEBUG , 1:DEBUG
 
-
 //GPIO DEFINITION
 //#define GPIO_INPUT_IO_0     12
 //#define GPIO_INPUT_IO_1     14
@@ -52,6 +51,8 @@ static const char* TAG = "protoC";
 // Events loop
 esp_event_loop_handle_t event_loop_h;
 
+
+int deadband_check(measure_t measure, measure_t setpoint, float deadband);
 
 //***************************************************************************** 
 //main task
@@ -82,6 +83,12 @@ void app_main()
     // TODO: Although it should be UTC+1, it seems we have to use UTC-1 (1 hour west from Grenwich, to make it work fine)
     setenv("TZ", "UTC-2,M3.5.0/2,M10.4.0/2", 1);
     tzset();
+
+    // TODO: esto es prueba rapida, codificar bien mas adelante, sacar como var globales junto con todas las DOs
+    static DO_t heater_command;
+    heater_command.value_actual = 0;
+    heater_command.value_prev = 0;
+
 
     // 
     ESP_LOGI(TAG, "event loop setup");
@@ -131,9 +138,8 @@ void app_main()
                                  (void*) pxheater_ctrl_loop_params, 5,
                                  heater_ctrl_loop_params.pxTaskHandle, APP_CPU_NUM) != pdPASS ) {    
         ESP_LOGE(TAG, "heater_ctrl task creation failed");
-    } else {
-    	ESP_LOGI(TAG, "heater_ctrl task created");
-    }
+        } 
+    else { ESP_LOGI(TAG, "heater_ctrl task created"); }
 
 
 #if DEBUG_EVENTS == 1
@@ -167,9 +173,8 @@ void app_main()
                                  (void*) pxBMP280_ctrl_loop_params, 5,
                                  BMP280_ctrl_loop_params.pxTaskHandle, APP_CPU_NUM) != pdPASS ) {    
         ESP_LOGE(TAG, "bmp280_ctrl task creation failed\r\n");
-    } else {
-    	ESP_LOGI(TAG, "bmp280_ctrl task created\r\n");
-    }
+        } 
+    else { ESP_LOGI(TAG, "bmp280_ctrl task created\r\n"); }
 
 #if DEBUG_EVENTS == 1
     // 2.2.1.- bmp280_test task, only for testing event reception and processing
@@ -186,24 +191,88 @@ void app_main()
     // ENDLESS LOOP, REMOVE AND SUPRESS BY VALID CODE
     //TickType_t tick;
 	for(;;) {
-		//ESP_LOGI(TAG, "Eternally waiting in loop");
-        //tick = xTaskGetTickCount();
-		vTaskDelay(DELAY_15m);          // Definir cada minuto
-        /*
-        ESP_LOGI(TAG, "Ticktime: %d:  BMP280.Temp.v: %3.2f %s, BMP280.Temp.q: %d", xTaskGetTickCount(), 
-                BMP280_Measures.temperature.value, BMP280_Measures.temperature.displayUnit, BMP280_Measures.temperature.quality);
-        ESP_LOGI(TAG, "Ticktime: %d:  BMP280.Press.v: %6.2f %s, BMP280.Press.q: %d", xTaskGetTickCount(), 
-                BMP280_Measures.pressure.value, BMP280_Measures.pressure.displayUnit, BMP280_Measures.pressure.quality); 
-        */
+        TickType_t tick = xTaskGetTickCount();
+		vTaskDelay(DELAY_60s);          // Definir cada minuto
 
-        ESP_LOGI(TAG, "Ticktime: %d: BMP280.Temp(q= %d): %3.2f %s / BMP280.Press(q= %d): %6.2f %s", 
-                xTaskGetTickCount(), 
+        // Select temperature sensor that controls temperature and read room temperature
+        // TODO, de momento me lo salto
+
+        time_t now1;
+        time(&now1);
+        struct tm timeinfo;
+        localtime_r(&now1, &timeinfo);
+
+        float deadband = 2;
+        int result = deadband_check(BMP280_Measures.temperature, temperature_setpoint, deadband);
+        switch (result){
+            case 1:     // over db => SET HEATER OFF
+                heater_command.value_prev = heater_command.value_actual;
+                heater_command.value_actual = 0;
+                if (heater_command.value_actual != heater_command.value_prev){
+                    ESP_LOGI(TAG, "%d / %d:%d SET HEATER OFF. Setpoint: %f, Temperature:%f ", 
+                        timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
+                        temperature_setpoint.value, BMP280_Measures.temperature.value);
+                    }
+                break;
+
+            case 2:     // inside db => KEEP ACTUAL HEATER STATUS (ON OR OFF)
+                heater_command.value_prev = heater_command.value_actual;
+                //heater_command.value_actual = heater_command.value_actual;
+                // TODO; Una vez que cambia, no cambiar en XXX segundos, a definir
+                break;
+            
+            case 3:     // under db => SET HEATER ON
+                heater_command.value_prev = heater_command.value_actual;
+                heater_command.value_actual = 1;
+                if (heater_command.value_actual != heater_command.value_prev){
+                    ESP_LOGI(TAG, "%d / %d:%d SET HEATER ON. Setpoint: %f, Temperature:%f ", 
+                        timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
+                        temperature_setpoint.value, BMP280_Measures.temperature.value);
+                    }
+                break;
+
+            // TODO: Casos en los que la calidad sea mala, decidir qué hacer
+            // TODO: Convertir en caso general, dar mismo tratamiento a todas las salidas    
+            }
+
+
+
+        if ((timeinfo.tm_min%15) == 0){
+
+            ESP_LOGI(TAG, "%d / %d:%d Trace........ Setpoint: %3.2f %s (%d), Temperature:3.2%f %s (%d)", 
+                    timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
+                    temperature_setpoint.value, temperature_setpoint.displayUnit, temperature_setpoint.quality,
+                    BMP280_Measures.temperature.value, BMP280_Measures.temperature.displayUnit, BMP280_Measures.temperature.quality);
+            ESP_LOGI(TAG,  "%d / %d:%d Trace........ BMP280.Temp(q= %d): %3.2f %s / BMP280.Press(q= %d): %6.2f %s", 
+                timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
                 BMP280_Measures.temperature.quality, BMP280_Measures.temperature.value, BMP280_Measures.temperature.displayUnit, 
                 BMP280_Measures.pressure.quality, BMP280_Measures.pressure.value, BMP280_Measures.pressure.displayUnit);
+            }
 
-        // Test: Subir el periodo de muestreo       TODO: quitar cuando esté probado
-        //BMP280_ctrl_loop_params.ulLoopPeriod = BMP280_ctrl_loop_params.ulLoopPeriod + 1000;
-        //ESP_ERROR_CHECK(esp_event_post_to(event_loop_h, BMP280_EVENTS, BMP280_CL_CHANGE_FREQ, NULL, 0, EVENT_MAX_DELAY));               
+
+
+
 		}
   
 }
+
+
+// TODO- Eval also quality
+/***************************************************************************** 
+* deadband_check
+******************************************************************************
+ * @brief check if the value is under/inside/over deadband
+ * @param[in] value
+ * @param[in] deadband
+ * @return: 1:over db / 2:Inside db / 3:under db
+ */
+int deadband_check(measure_t measure, measure_t setpoint, float deadband){   
+    int output = 2;
+    if (measure.value > (setpoint.value + deadband/2) )     {output = 1;}
+    else if (measure.value < (setpoint.value - deadband/2)) {output = 3;}
+    else {output = 2;}
+    return (output);
+}
+
+
+

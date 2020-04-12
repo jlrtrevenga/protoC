@@ -71,6 +71,12 @@ void heater_ctrl_loop(void *pvParameter)
 
         // Select active program and setpoint temperature
         error = tp_get_target_value(now, poverride_active, poverride_temperature, ptemperature);
+
+        tick = xTaskGetTickCount();  
+        heater_ctrl_loop_params.pxtemperature->tickTime = tick;  
+        heater_ctrl_loop_params.pxtemperature->value = (float) *ptemperature;
+
+        // pxheater_ctrl_loop_params->pxtemperature->quality is calculated based on error value
         switch (error){
                     
             // No time transition => keep temperature reference
@@ -113,18 +119,8 @@ void heater_ctrl_loop(void *pvParameter)
 
                 break;
         }
-
-        tick = xTaskGetTickCount();  
-        heater_ctrl_loop_params.pxtemperature->tickTime = tick;  
-        heater_ctrl_loop_params.pxtemperature->value = (float) *ptemperature;  
-
-        // Select temperature sensor that controls temperature and read room temperature
-
-        // If room_temperature > (setpoint temperature + deadband/2)  => SET/KEEP boiler OFF   
-        // If room_temperature < (setpoint temperature - deadband/2)  => SET/KEEP boiler ON   
+  
 		}
-
-
 
 }
 

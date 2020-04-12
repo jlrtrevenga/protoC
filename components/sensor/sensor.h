@@ -45,7 +45,6 @@ typedef struct {
 } measure_t;
 //    tm          timestamp;
 
-
 struct Instrument {
    int      instrumentID;
    char     model[10];
@@ -54,6 +53,16 @@ struct Instrument {
    double   value;
    time_t   timestamp;
 };
+
+
+typedef struct {
+    int value_actual;
+    int value_prev;
+} DO_t;
+
+
+
+
 
 
 #ifdef __cplusplus
