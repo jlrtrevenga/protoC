@@ -171,7 +171,7 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
 
 
     default:
-        ESP_LOGI(TAG, "dEFAULT Event: %d ", event->event_id);
+        ESP_LOGI(TAG, "Default Event: %d ", event->event_id);
         break;
     }
     return ESP_OK;
