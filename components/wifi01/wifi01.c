@@ -140,7 +140,7 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
         
     case SYSTEM_EVENT_STA_START:
         ESP_ERROR_CHECK( esp_wifi_connect() );
-        ESP_LOGI(TAG, "Event: SYSTEM_EVENT_STA_START -> Receceived");        
+        ESP_LOGI(TAG, "Event: SYSTEM_EVENT_STA_START -> Received");        
         break;
 
     case SYSTEM_EVENT_STA_CONNECTED:
@@ -164,6 +164,11 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
             wifi_reconnect();
         }
         break;
+
+    case SYSTEM_EVENT_STA_STOP:
+        ESP_LOGI(TAG, "Event: SYSTEM_EVENT_STA_STOP -> Received");        
+        break;
+
 
     default:
         ESP_LOGI(TAG, "dEFAULT Event: %d ", event->event_id);
