@@ -65,7 +65,7 @@ void app_main()
     esp_log_level_set("HEATER_CTRL", 3);        // tiene compilacion condicional para errores
     esp_log_level_set("wifi", 1);
     esp_log_level_set("event", 1);
-    esp_log_level_set("WIFI01", 1);
+    esp_log_level_set("WIFI01", 3);
     esp_log_level_set("TASK_PROGRAMMER01", 1);
     esp_log_level_set("WIFI_EXAMPLE", 3);           // REMOVE? CHECK
     esp_log_level_set("protoC", 3);
@@ -239,14 +239,16 @@ void app_main()
 
         if ((timeinfo.tm_min%15) == 0){
 
-            ESP_LOGI(TAG, "%d / %d:%d Trace........ Setpoint: %3.2f %s (%d), Temperature:3.2%f %s (%d)", 
+            ESP_LOGI(TAG, "%d / %d:%d Trace........ Setpoint: %3.2f ºC (%d), Temperature:%3.2f %s (%d)", 
                     timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
-                    temperature_setpoint.value, temperature_setpoint.displayUnit, temperature_setpoint.quality,
+                    temperature_setpoint.value, temperature_setpoint.quality,
                     BMP280_Measures.temperature.value, BMP280_Measures.temperature.displayUnit, BMP280_Measures.temperature.quality);
+            /*        
             ESP_LOGI(TAG,  "%d / %d:%d Trace........ BMP280.Temp(q= %d): %3.2f %s / BMP280.Press(q= %d): %6.2f %s", 
                 timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
                 BMP280_Measures.temperature.quality, BMP280_Measures.temperature.value, BMP280_Measures.temperature.displayUnit, 
                 BMP280_Measures.pressure.quality, BMP280_Measures.pressure.value, BMP280_Measures.pressure.displayUnit);
+            */
             }
 
 

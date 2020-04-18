@@ -15,6 +15,8 @@ static bool wifi_event_loop_started = false;                // variable used to 
 static bool wifi_auto_reconnect = true;                 // reconnect if connection is lost (deactivate when stopping process)
 static bool sntp_sync_active = true;                    // activate SNTP service update
 
+static bool wifi_connected = false;                     // activated and deactivated by events
+
 static esp_err_t wifi_event_handler(void *ctx, system_event_t *event);
 
 static const char *TAG = "WIFI01";
@@ -57,6 +59,7 @@ void wifi_activate(bool auto_reconnect, bool sntp_sync)
 }
 
 
+
 /****************************************************************************** 
 * wifi deactivate
 *******************************************************************************
@@ -70,6 +73,37 @@ void wifi_deactivate(void)
     ESP_ERROR_CHECK( esp_wifi_stop() );         //tcpip_adapter and DHCP server/client are automatically stopped.
 
 }
+
+
+/****************************************************************************** 
+* wifi reconnect
+*******************************************************************************
+ * @brief reconnects wifi in case of disconnection 
+ * @brief as when SYSTEM_EVENT_STA_DISCONNECTED is received.
+ * @brief sntp must be disconnected after trying to reconnect wifi.
+*******************************************************************************/
+void wifi_reconnect(void){
+    // bucle para reconnectar N veces
+    // Corregir para lanzar un hilo y que sea independiente del proceso donde se gestiona el evento
+
+    int multiplo = 60;
+    int retry_nbr_inc = 10;
+    int retry_nbr_limit = 100;
+    int retry_nbr = 0;
+
+    do {
+        wifi_deactivate();
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        wifi_activate(true, true);
+        ESP_LOGI(TAG, "Wifi reconnect");
+        vTaskDelay(pdMS_TO_TICKS( (1 + multiplo * retry_nbr) * 1000));
+        if (retry_nbr < retry_nbr_inc) { retry_nbr++; };
+        } while (!wifi_connected || retry_nbr < retry_nbr_limit);
+}
+
+
+
+
 
 /****************************************************************************** 
 * wifi deactivate
@@ -105,12 +139,12 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
     switch(event->event_id) {
         
     case SYSTEM_EVENT_STA_START:
-        ESP_LOGI(TAG, "Event: SYSTEM_EVENT_STA_START -> Process");
         ESP_ERROR_CHECK( esp_wifi_connect() );
-        ESP_LOGI(TAG, "Event: SYSTEM_EVENT_STA_START -> Processed");        
+        ESP_LOGI(TAG, "Event: SYSTEM_EVENT_STA_START -> Receceived");        
         break;
 
     case SYSTEM_EVENT_STA_CONNECTED:
+        wifi_connected = true;
         ESP_LOGI(TAG, "Event: SYSTEM_EVENT_STA_CONNECTED -> Received");
         break;
 
@@ -123,10 +157,11 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
         break;
 
     case SYSTEM_EVENT_STA_DISCONNECTED:
+        wifi_connected = false;
         ESP_LOGI(TAG, "Event: SYSTEM_EVENT_STA_DISCONNECTED -> Received");
         /* Workaround as ESP32 WiFi libs don't currently auto-reassociate. */
         if (wifi_auto_reconnect) {
-            esp_wifi_connect();
+            wifi_reconnect();
         }
         break;
 

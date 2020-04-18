@@ -34,7 +34,6 @@ heater_ctrl_loop_params_t  heater_ctrl_loop_params;
 //*****************************************************************************
 void heater_ctrl_loop(void *pvParameter)
 {
-
     //Copy "Heater Control Loop Parameters" on task creation.
     heater_ctrl_loop_params_t* pxheater_ctrl_loop_params = (heater_ctrl_loop_params_t*) pvParameter;
     heater_ctrl_loop_params.event_loop_handle = pxheater_ctrl_loop_params->event_loop_handle;

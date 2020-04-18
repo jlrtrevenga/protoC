@@ -65,6 +65,10 @@ void wifi_deactivate(void);
 *******************************************************************************/
 void sntp_start(void);
 
+void wifi_reconnect(void);
+
+
+
 #ifdef __cplusplus
 }
 #endif
