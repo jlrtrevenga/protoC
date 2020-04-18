@@ -23,6 +23,7 @@
 #include "sensor.h"
 #include "bmp280.h"
 #include "wifi01.h"
+#include "sntp2.h"
 //#include "sensor.h"
 //#include "driver/gpio.h"
 
@@ -63,7 +64,7 @@ void app_main()
     // DEFINIR LOS NIVELES DE LOG POR TAG
     esp_log_level_set("BMP280_CTRL_LOOP", 1);
     esp_log_level_set("HEATER_CTRL", 3);        // tiene compilacion condicional para errores
-    esp_log_level_set("wifi", 1);
+    esp_log_level_set("wifi", 3);
     esp_log_level_set("event", 1);
     esp_log_level_set("WIFI01", 3);
     esp_log_level_set("TASK_PROGRAMMER01", 1);
@@ -194,6 +195,15 @@ void app_main()
         TickType_t tick = xTaskGetTickCount();
 		vTaskDelay(DELAY_60s);          // Definir cada minuto
 
+        //Check last sync time
+        time_t sync_time;
+        struct tm sync_timeinfo;
+        char strftime_sync_buf[64];
+        sync_time = sntp_get_sync_time();
+        localtime_r(&sync_time, &sync_timeinfo);
+        strftime(strftime_sync_buf, sizeof(strftime_sync_buf), "%c", &sync_timeinfo);
+
+
         // Select temperature sensor that controls temperature and read room temperature
         // TODO, de momento me lo salto
 
@@ -238,11 +248,12 @@ void app_main()
 
 
         if ((timeinfo.tm_min%15) == 0){
-
-            ESP_LOGI(TAG, "%d / %d:%d Trace........ Setpoint: %3.2f ºC (%d), Temperature:%3.2f %s (%d)", 
+            //ESP_LOGE(TAG, "tp_get_target_value: TIME ERROR - Localtime in Madrid (UTC-1,M3.5.0/2,M10.4.0/2) is: %s", strftime_buf);
+            ESP_LOGI(TAG, "%d / %d:%d Trace........ Setpoint: %3.2f ºC (%d), Temperature:%3.2f %s (%d), last sync: %s", 
                     timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
                     temperature_setpoint.value, temperature_setpoint.quality,
-                    BMP280_Measures.temperature.value, BMP280_Measures.temperature.displayUnit, BMP280_Measures.temperature.quality);
+                    BMP280_Measures.temperature.value, BMP280_Measures.temperature.displayUnit, BMP280_Measures.temperature.quality, 
+                    strftime_sync_buf);
             /*        
             ESP_LOGI(TAG,  "%d / %d:%d Trace........ BMP280.Temp(q= %d): %3.2f %s / BMP280.Press(q= %d): %6.2f %s", 
                 timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
@@ -250,12 +261,7 @@ void app_main()
                 BMP280_Measures.pressure.quality, BMP280_Measures.pressure.value, BMP280_Measures.pressure.displayUnit);
             */
             }
-
-
-
-
 		}
-  
 }
 
 

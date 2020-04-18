@@ -93,6 +93,7 @@ void wifi_reconnect(void){
 
     do {
         wifi_deactivate();
+        ESP_LOGI(TAG, "Wifi deactivate");
         vTaskDelay(pdMS_TO_TICKS(1000));
         wifi_activate(true, true);
         ESP_LOGI(TAG, "Wifi reconnect");
