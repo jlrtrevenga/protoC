@@ -10,6 +10,8 @@
 //#define SNTP_UPDATE_DELAY  3600000                          /* SNTP time update: 1h.    */
 #define SNTP_UPDATE_DELAY   43200000                          /* SNTP time update: 1 day */
 
+
+
 //TODO: Learn how to check if the loop is already initialized and improve code
 static bool wifi_event_loop_started = false;                // variable used to initialize the loop only the first time
 static bool wifi_auto_reconnect = true;                 // reconnect if connection is lost (deactivate when stopping process)
