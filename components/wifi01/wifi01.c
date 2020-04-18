@@ -71,7 +71,6 @@ void wifi_deactivate(void)
     wifi_auto_reconnect = false;                //deactivate auto reconnection before stopping sntp
     sntp_stop();                                //validates internally if sntp service is started
     ESP_ERROR_CHECK( esp_wifi_stop() );         //tcpip_adapter and DHCP server/client are automatically stopped.
-
 }
 
 
@@ -100,8 +99,6 @@ void wifi_reconnect(void){
         if (retry_nbr < retry_nbr_inc) { retry_nbr++; };
         } while (!wifi_connected || retry_nbr < retry_nbr_limit);
 }
-
-
 
 
 
