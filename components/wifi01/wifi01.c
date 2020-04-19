@@ -8,7 +8,8 @@
 
 //#define SNTP_UPDATE_DELAY    60000                          /* DELAY >= 15000 according to standard */ 
 //#define SNTP_UPDATE_DELAY  3600000                          /* SNTP time update: 1h.    */
-#define SNTP_UPDATE_DELAY   43200000                          /* SNTP time update: 1 day */
+//#define SNTP_UPDATE_DELAY   43200000                          /* SNTP time update: 1 day */
+#define SNTP_UPDATE_DELAY  21600000                          /* SNTP time update: 1h.    */
 
 
 
@@ -73,7 +74,6 @@ void wifi_deactivate(void)
     wifi_auto_reconnect = false;                //deactivate auto reconnection before stopping sntp
     sntp_stop();                                //validates internally if sntp service is started
     ESP_ERROR_CHECK( esp_wifi_stop() );         //tcpip_adapter and DHCP server/client are automatically stopped.
-
 }
 
 
@@ -95,6 +95,7 @@ void wifi_reconnect(void){
 
     do {
         wifi_deactivate();
+        ESP_LOGI(TAG, "Wifi deactivate");
         vTaskDelay(pdMS_TO_TICKS(1000));
         wifi_activate(true, true);
         ESP_LOGI(TAG, "Wifi reconnect");
@@ -102,8 +103,6 @@ void wifi_reconnect(void){
         if (retry_nbr < retry_nbr_inc) { retry_nbr++; };
         } while (!wifi_connected || retry_nbr < retry_nbr_limit);
 }
-
-
 
 
 
@@ -142,7 +141,7 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
         
     case SYSTEM_EVENT_STA_START:
         ESP_ERROR_CHECK( esp_wifi_connect() );
-        ESP_LOGI(TAG, "Event: SYSTEM_EVENT_STA_START -> Receceived");        
+        ESP_LOGI(TAG, "Event: SYSTEM_EVENT_STA_START -> Received");        
         break;
 
     case SYSTEM_EVENT_STA_CONNECTED:
@@ -167,8 +166,13 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
         }
         break;
 
+    case SYSTEM_EVENT_STA_STOP:
+        ESP_LOGI(TAG, "Event: SYSTEM_EVENT_STA_STOP -> Received");        
+        break;
+
+
     default:
-        ESP_LOGI(TAG, "dEFAULT Event: %d ", event->event_id);
+        ESP_LOGI(TAG, "Default Event: %d ", event->event_id);
         break;
     }
     return ESP_OK;

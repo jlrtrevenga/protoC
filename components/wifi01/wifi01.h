@@ -32,8 +32,8 @@
 #include <stdint.h>
 
 #include "lwip/err.h"
-#include "lwip/apps/sntp.h"
-
+//#include "lwip/apps/sntp.h"
+#include "sntp2.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -3,6 +3,7 @@
 #include "task_programmer01.h"
 #include "esp_log.h"
 
+
 // PREDEFINED target_value, daily pattern and weekly patterns
 
 #define TV_PREDEF_ELEMENTS 5
@@ -311,8 +312,6 @@ int tp_get_target_value(time_t actual_time, bool *poverride_active, int *p_overr
 
     ESP_LOGI(TAG, "tp_get_target_value: INPUT : ppa.prev_idx: %d, ppa.next_idx: %d, ppa.last_idx: %d", ppa.prev_idx, ppa.next_idx, ppa.last_idx);
 
-    //get actual day/time 
-    //time_t now;
     //time(&now);
     struct tm timeinfo;
     localtime_r(&actual_time, &timeinfo);
@@ -325,6 +324,7 @@ int tp_get_target_value(time_t actual_time, bool *poverride_active, int *p_overr
     if (timeinfo.tm_year < (2020 - 1900)) { 
         char strftime_buf[64];
         strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+
         ESP_LOGE(TAG, "tp_get_target_value: TIME ERROR - Localtime in Madrid (UTC-1,M3.5.0/2,M10.4.0/2) is: %s", strftime_buf);
         //ESP_LOGE(TAG, "Date: %d / %d / %d", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday );
         //ESP_LOGE(TAG, "tm_year: %d, tm_yday: %d, tm_wday: %d, tm_mday: %d", timeinfo.tm_year, timeinfo.tm_yday, timeinfo.tm_wday, timeinfo.tm_mday  );
