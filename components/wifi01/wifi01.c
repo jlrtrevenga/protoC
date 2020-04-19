@@ -114,9 +114,14 @@ void sntp_start(void)
 {
     // TODO: Verify that wifi service is operative before calling it if the function is not static
     ESP_LOGI(TAG, "Initializing SNTP");
-    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, "pool.ntp.org");
-    sntp_init();
+    // Before setting operation mode confirm sntp is not running,
+    // as it crashes if operating mode is called when sntp is running.
+    u8_t stat = sntp_enabled();
+    if (stat == 0){
+        sntp_setoperatingmode(SNTP_OPMODE_POLL);
+        sntp_setservername(0, "pool.ntp.org");
+        sntp_init();
+        }
 }
 
 /****************************************************************************** 
