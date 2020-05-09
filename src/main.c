@@ -27,6 +27,10 @@
 //#include "sensor.h"
 //#include "driver/gpio.h"
 
+//#include "mqtt_client.h"
+#include "mod_mqtt.h"
+
+
 #define DELAY_1s             (pdMS_TO_TICKS( 1000))
 #define DELAY_2s             (pdMS_TO_TICKS( 2000))
 #define DELAY_5s             (pdMS_TO_TICKS( 5000))
@@ -61,7 +65,23 @@ int deadband_check(measure_t measure, measure_t setpoint, float deadband);
 void app_main()
 {
 
+    ESP_LOGI(TAG, "[APP] Startup..");
+    ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
+    ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
+
+/*
+typedef enum {
+    ESP_LOG_NONE,       //!< No log output
+    ESP_LOG_ERROR,      //!< Critical errors, software module can not recover on its own 
+    ESP_LOG_WARN,       //!< Error conditions from which recovery measures have been taken
+    ESP_LOG_INFO,       //!< Information messages which describe normal flow of events 
+    ESP_LOG_DEBUG,      //!< Extra information which is not necessary for normal use (values, pointers, sizes, etc). 
+    ESP_LOG_VERBOSE     //!< Bigger chunks of debugging information, or frequent messages which can potentially flood the output. 
+} esp_log_level_t;
+*/
+
     // DEFINIR LOS NIVELES DE LOG POR TAG
+  /*  
     esp_log_level_set("BMP280_CTRL_LOOP", 1);
     esp_log_level_set("HEATER_CTRL", 3);        // tiene compilacion condicional para errores
     esp_log_level_set("wifi", 3);
@@ -70,6 +90,28 @@ void app_main()
     esp_log_level_set("TASK_PROGRAMMER01", 1);
     esp_log_level_set("WIFI_EXAMPLE", 3);           // REMOVE? CHECK
     esp_log_level_set("protoC", 3);
+*/
+
+    esp_log_level_set("BMP280_CTRL_LOOP",   ESP_LOG_ERROR);
+    esp_log_level_set("HEATER_CTRL",        ESP_LOG_ERROR);        // tiene compilacion condicional para errores
+    esp_log_level_set("wifi",               ESP_LOG_ERROR);
+    esp_log_level_set("event",              ESP_LOG_ERROR);
+    esp_log_level_set("WIFI01",             ESP_LOG_ERROR);
+    esp_log_level_set("TASK_PROGRAMMER01",  ESP_LOG_ERROR);
+    esp_log_level_set("WIFI_EXAMPLE",       ESP_LOG_ERROR);           // REMOVE? CHECK
+    esp_log_level_set("MOD_MQTT",             ESP_LOG_INFO);
+    esp_log_level_set("protoC",             ESP_LOG_INFO);
+
+    // inherited from mqtt examples
+    //esp_log_level_set("*", ESP_LOG_INFO);
+    esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
+    esp_log_level_set("MQTT_EXAMPLE", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
+    esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
+
+
 
 	// time setting
     time_t now;
@@ -117,6 +159,16 @@ void app_main()
 	// TODO: Start/stop Connectivity (WIFI / GPRS/OTHERS)
 	// TODO: Validate time is correct before activating programmer
        wifi_activate(true, true);
+
+
+    // mqtt_Start. Requiere wifi activada y los servicios que aparecen abajo, que ya han sido activados para la wifi
+
+/*
+    ESP_ERROR_CHECK(nvs_flash_init());
+    tcpip_adapter_init();
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+*/
+    mqtt_app_start();
 
 
     // 2.- SERVICES LOOPS
