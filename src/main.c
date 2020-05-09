@@ -29,6 +29,7 @@
 
 //#include "mqtt_client.h"
 #include "mod_mqtt.h"
+#include "mqtt_client.h"
 
 
 #define DELAY_1s             (pdMS_TO_TICKS( 1000))
@@ -80,18 +81,6 @@ typedef enum {
 } esp_log_level_t;
 */
 
-    // DEFINIR LOS NIVELES DE LOG POR TAG
-  /*  
-    esp_log_level_set("BMP280_CTRL_LOOP", 1);
-    esp_log_level_set("HEATER_CTRL", 3);        // tiene compilacion condicional para errores
-    esp_log_level_set("wifi", 3);
-    esp_log_level_set("event", 1);
-    esp_log_level_set("WIFI01", 3);
-    esp_log_level_set("TASK_PROGRAMMER01", 1);
-    esp_log_level_set("WIFI_EXAMPLE", 3);           // REMOVE? CHECK
-    esp_log_level_set("protoC", 3);
-*/
-
     esp_log_level_set("BMP280_CTRL_LOOP",   ESP_LOG_ERROR);
     esp_log_level_set("HEATER_CTRL",        ESP_LOG_ERROR);        // tiene compilacion condicional para errores
     esp_log_level_set("wifi",               ESP_LOG_ERROR);
@@ -110,7 +99,6 @@ typedef enum {
     esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
     esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
     esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
-
 
 
 	// time setting
@@ -168,7 +156,29 @@ typedef enum {
     tcpip_adapter_init();
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 */
-    mqtt_app_start();
+
+
+// MQTT Initialization
+
+    esp_err_t error = mqtt_app_start();
+    if (error != ESP_OK){
+        ESP_LOGE(TAG, "MQTT CLIENT INITIALIZATION FAILED");
+    }
+
+    int msg_id;
+
+    ESP_LOGI(TAG, "me suscribo .....");
+    msg_id = mqtt_client_subscribe("/topic/qos0", 0);
+    msg_id = mqtt_client_subscribe("/topic/qos1", 1);
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    ESP_LOGI(TAG, "PUBLICO whale_01");
+    msg_id = mqtt_client_publish("/topic/qos0", "data_blue_whale_01", 0, 0, 0);
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    ESP_LOGI(TAG, "PUBLICO whale_02");
+    msg_id = mqtt_client_publish("/topic/qos1", "data_blue_whale_02", 0, 0, 0);
+
 
 
     // 2.- SERVICES LOOPS
@@ -264,6 +274,7 @@ typedef enum {
         struct tm timeinfo;
         localtime_r(&now1, &timeinfo);
 
+        char valor[20]; 
         float deadband = 2;
         int result = deadband_check(BMP280_Measures.temperature, temperature_setpoint, deadband);
         switch (result){
@@ -274,6 +285,13 @@ typedef enum {
                     ESP_LOGI(TAG, "%d / %d:%d SET HEATER OFF. Setpoint: %f, Temperature:%f ", 
                         timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
                         temperature_setpoint.value, BMP280_Measures.temperature.value);
+
+                    // MQTT Publish
+                    sprintf(valor, "%3.2f", BMP280_Measures.temperature.value);
+                    msg_id = mqtt_client_publish("/home6532/room1/temp/value", valor, 0, 0, 0);
+                    sprintf(valor, "%3.2f", temperature_setpoint.value);
+                    msg_id = mqtt_client_publish("/home6532/room1/temp/setpoint", valor, 0, 0, 0);
+                    msg_id = mqtt_client_publish("/home6532/heater_cmd/", "OFF", 0, 0, 0);
                     }
                 break;
 
@@ -290,13 +308,19 @@ typedef enum {
                     ESP_LOGI(TAG, "%d / %d:%d SET HEATER ON. Setpoint: %f, Temperature:%f ", 
                         timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
                         temperature_setpoint.value, BMP280_Measures.temperature.value);
+
+                    // MQTT Publish
+                    sprintf(valor, "%3.2f", BMP280_Measures.temperature.value);
+                    msg_id = mqtt_client_publish("/home6532/room1/temp/value", valor, 0, 0, 0);
+                    sprintf(valor, "%3.2f", temperature_setpoint.value);
+                    msg_id = mqtt_client_publish("/home6532/room1/temp/setpoint", valor, 0, 0, 0);
+                    msg_id = mqtt_client_publish("/home6532/heater_cmd/", "ON", 0, 0, 0);                        
                     }
                 break;
 
             // TODO: Casos en los que la calidad sea mala, decidir qué hacer
             // TODO: Convertir en caso general, dar mismo tratamiento a todas las salidas    
             }
-
 
 
         if ((timeinfo.tm_min%15) == 0){
@@ -306,12 +330,12 @@ typedef enum {
                     temperature_setpoint.value, temperature_setpoint.quality,
                     BMP280_Measures.temperature.value, BMP280_Measures.temperature.displayUnit, BMP280_Measures.temperature.quality, 
                     strftime_sync_buf);
-            /*        
-            ESP_LOGI(TAG,  "%d / %d:%d Trace........ BMP280.Temp(q= %d): %3.2f %s / BMP280.Press(q= %d): %6.2f %s", 
-                timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
-                BMP280_Measures.temperature.quality, BMP280_Measures.temperature.value, BMP280_Measures.temperature.displayUnit, 
-                BMP280_Measures.pressure.quality, BMP280_Measures.pressure.value, BMP280_Measures.pressure.displayUnit);
-            */
+
+                    // MQTT Publish
+            sprintf(valor, "%3.2f", BMP280_Measures.temperature.value);
+            msg_id = mqtt_client_publish("/home6532/room1/temp/value", valor, 0, 0, 0);
+            sprintf(valor, "%3.2f", temperature_setpoint.value);
+            msg_id = mqtt_client_publish("/home6532/room1/temp/setpoint", valor, 0, 0, 0);
             }
 		}
 }

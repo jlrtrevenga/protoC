@@ -7,12 +7,22 @@
 // PREDEFINED target_value, daily pattern and weekly patterns
 
 #define TV_PREDEF_ELEMENTS 5
+/*
 static struct target_var tv_predef[TV_PREDEF_ELEMENTS] = {
   {1, 5},     // ºC, antihielo
   {2, 10},    // ºC, temp. baja
   {3, 18},    // ºC, temp. mantenimiento
   {4, 21},    // ºC, temp. comfort
   {5, 23}    // ºC, temp. alta
+  };
+*/
+
+static struct target_var tv_predef[TV_PREDEF_ELEMENTS] = {
+  {1, 5},     // ºC, antihielo
+  {2, 10},    // ºC, temp. baja
+  {3, 25},    // ºC, temp. mantenimiento
+  {4, 27},    // ºC, temp. comfort
+  {5, 30}    // ºC, temp. alta
   };
 
 #define PD_PREDEF_ELEMENTS 26 

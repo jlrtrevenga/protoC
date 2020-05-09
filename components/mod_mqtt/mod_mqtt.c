@@ -29,6 +29,7 @@
 #include "mod_mqtt.h"
 #include "mqtt_client.h"
 
+
 static const char *TAG = "MOD_MQTT";
 
 /*
@@ -40,9 +41,8 @@ extern const uint8_t mqtt_eclipse_org_pem_start[]   asm("_binary_mqtt_eclipse_or
 extern const uint8_t mqtt_eclipse_org_pem_end[]   asm("_binary_mqtt_eclipse_org_pem_end");
 */
 
-
-static bool mqtt_connected = false;    // 
-
+static esp_mqtt_client_handle_t client;
+static bool mqtt_connected = false;         // 
 
 static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 {
@@ -53,35 +53,33 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
         case MQTT_EVENT_CONNECTED:
             mqtt_connected = true;
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-            msg_id = esp_mqtt_client_subscribe(client, "/topic/qos0", 0);
-            ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
-
-            msg_id = esp_mqtt_client_subscribe(client, "/topic/qos1", 1);
-            ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
-
-            msg_id = esp_mqtt_client_unsubscribe(client, "/topic/qos1");
-            ESP_LOGI(TAG, "sent unsubscribe successful, msg_id=%d", msg_id);
             break;
+
         case MQTT_EVENT_DISCONNECTED:
             mqtt_connected = false;
             ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
             break;
+
         case MQTT_EVENT_SUBSCRIBED:
             ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
-            msg_id = esp_mqtt_client_publish(client, "/topic/qos0", "data_blue_whale_01", 0, 0, 0);
-            ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
             break;
+
         case MQTT_EVENT_UNSUBSCRIBED:
             ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
             break;
+
         case MQTT_EVENT_PUBLISHED:
             ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
             break;
+
         case MQTT_EVENT_DATA:
-            ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-            printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-            printf("DATA=%.*s\r\n", event->data_len, event->data);
+            ESP_LOGV(TAG, "MQTT_EVENT_DATA");
+            ESP_LOGV(TAG, "TOPIC=%.*s\r\n", event->topic_len, event->topic);
+            ESP_LOGV(TAG, "TOPIC=%.*s\r\n", event->data_len, event->data);            
+            //printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
+            //printf("DATA=%.*s\r\n", event->data_len, event->data);
             break;
+
         case MQTT_EVENT_BEFORE_CONNECT:
             ESP_LOGI(TAG, "MQTT_EVENT_BEFORE_CONNECT");
             if (event->error_handle->error_type == MQTT_ERROR_TYPE_ESP_TLS) {
@@ -105,6 +103,7 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
                 ESP_LOGW(TAG, "Unknown error type: 0x%x", event->error_handle->error_type);
             }
             break;
+
         default:
             ESP_LOGI(TAG, "Other event id:%d", event->event_id);
             break;
@@ -121,14 +120,13 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
 
 
-
-void mqtt_app_start(void)
+/****************************************************************************** 
+* mqtt_app_start
+*******************************************************************************
+ * @brief starts mqtt client. 
+*******************************************************************************/
+ esp_err_t mqtt_app_start(void)
 {
-
-   const esp_mqtt_client_config_t mqtt_cfg = {
-        .uri = CONFIG_BROKER_URI,
-    };
-
 
 /*
    const esp_mqtt_client_config_t mqtt_cfg = {
@@ -136,12 +134,59 @@ void mqtt_app_start(void)
         .cert_pem = (const char *) mqtt_eclipse_org_pem_start,
     };
 */
-
+  
+   const esp_mqtt_client_config_t mqtt_cfg = {
+        .uri = CONFIG_BROKER_URI,
+    };
+   
     ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
-    esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
+    client = esp_mqtt_client_init(&mqtt_cfg);
+    //esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, client);
-    esp_mqtt_client_start(client);
+    esp_err_t err = esp_mqtt_client_start(client);
+    return (err);
 }
 
 
+
+/****************************************************************************** 
+* mqtt_client_publish in active mqtt client
+*******************************************************************************
+ * @brief starts mqtt client. 
+ * @param[in] *topic -> topic in which we write  
+ * @param[in] *data -> published data 
+ * @param[in] len   -> data lenght
+ * @param[in] qos   -> quality of service (0,1,2)
+ * @param[in] retain -> retain 
+*******************************************************************************/
+int mqtt_client_publish(const char *topic, const char *data, int len, int qos, int retain){
+    int msg_id = esp_mqtt_client_publish(client, topic, data, len, qos, retain);
+    return(msg_id);
+}
+
+
+/****************************************************************************** 
+* mqtt_client_subscribe in active mqtt client
+*******************************************************************************
+ * @brief starts mqtt client. 
+ * @param[in] *topic -> topic in which we write  
+ * @param[in] qos   -> quality of service (0,1,2)
+*******************************************************************************/
+int mqtt_client_subscribe(const char *topic, int qos){
+    int msg_id = esp_mqtt_client_subscribe(client, topic, qos);
+    return(msg_id);    
+}
+
+
+
+/*
+msg_id = esp_mqtt_client_subscribe(client, "/topic/qos0", 0);
+ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
+
+msg_id = esp_mqtt_client_subscribe(client, "/topic/qos1", 1);
+ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
+
+msg_id = esp_mqtt_client_unsubscribe(client, "/topic/qos1");
+ESP_LOGI(TAG, "sent unsubscribe successful, msg_id=%d", msg_id);
+*/ 
 

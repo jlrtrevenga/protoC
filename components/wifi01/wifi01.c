@@ -6,10 +6,10 @@
 //#define WIFI_AUTORECONNECT      true                          /* flag to configure wifi autoreconnection */
 //#define SNTP_SYNC_ACTIVE        true                          /* flag to activate/deactivate sntp sync*/
 
-//#define SNTP_UPDATE_DELAY    60000                          /* DELAY >= 15000 according to standard */ 
-//#define SNTP_UPDATE_DELAY  3600000                          /* SNTP time update: 1h.    */
+//#define SNTP_UPDATE_DELAY      60000                          /* DELAY >= 15000 according to standard */ 
+//#define SNTP_UPDATE_DELAY    3600000                          /* SNTP time update: 1h.    */
 //#define SNTP_UPDATE_DELAY   43200000                          /* SNTP time update: 1 day */
-#define SNTP_UPDATE_DELAY  21600000                          /* SNTP time update: 1h.    */
+#define SNTP_UPDATE_DELAY     21600000                          /* SNTP time update: 12h    */
 
 //TODO: Learn how to check if the loop is already initialized and improve code
 static bool wifi_event_loop_started = false;                // variable used to initialize the loop only the first time

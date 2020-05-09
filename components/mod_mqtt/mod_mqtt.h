@@ -16,13 +16,23 @@
 #include "esp_timer.h"
 #include "sensor.h"
 */
-
+#include "mqtt_client.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void mqtt_app_start(void);
+typedef struct {
+esp_mqtt_client_handle_t client;
+esp_err_t err;
+} mqtt_client_par_t;
+
+
+esp_err_t mqtt_app_start(void);
+int mqtt_client_publish(const char *topic, const char *data, int len, int qos, int retain);
+int mqtt_client_subscribe(const char *topic, int qos);
+
+
 
 
 
