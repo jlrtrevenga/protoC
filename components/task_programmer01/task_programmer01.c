@@ -20,8 +20,8 @@ static struct target_var tv_predef[TV_PREDEF_ELEMENTS] = {
 static struct target_var tv_predef[TV_PREDEF_ELEMENTS] = {
   {1, 5},     // ºC, antihielo
   {2, 10},    // ºC, temp. baja
-  {3, 25},    // ºC, temp. mantenimiento
-  {4, 27},    // ºC, temp. comfort
+  {3, 20},    // ºC, temp. mantenimiento
+  {4, 24},    // ºC, temp. comfort
   {5, 30}    // ºC, temp. alta
   };
 

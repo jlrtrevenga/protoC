@@ -1,6 +1,6 @@
 
 
-/* Heater Control Test. Prototype B 
+/* Heater Control Test. Prototype C 
 
    This example code is in the Public Domain (or CC0 licensed, at your option.)
 
@@ -27,7 +27,6 @@
 //#include "sensor.h"
 //#include "driver/gpio.h"
 
-//#include "mqtt_client.h"
 #include "mod_mqtt.h"
 #include "mqtt_client.h"
 
@@ -142,44 +141,13 @@ typedef enum {
     // COMMON I2C "services" (mutex access control)
     ESP_ERROR_CHECK(i2cdev_init());
 
-
 	// Activate wifi and get time via NTP Server
 	// TODO: Start/stop Connectivity (WIFI / GPRS/OTHERS)
 	// TODO: Validate time is correct before activating programmer
-       wifi_activate(true, true);
-
+    wifi_activate(true, true);
 
     // mqtt_Start. Requiere wifi activada y los servicios que aparecen abajo, que ya han sido activados para la wifi
-
-/*
-    ESP_ERROR_CHECK(nvs_flash_init());
-    tcpip_adapter_init();
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-*/
-
-
-// MQTT Initialization
-
-    esp_err_t error = mqtt_app_start();
-    if (error != ESP_OK){
-        ESP_LOGE(TAG, "MQTT CLIENT INITIALIZATION FAILED");
-    }
-
-    int msg_id;
-
-    ESP_LOGI(TAG, "me suscribo .....");
-    msg_id = mqtt_client_subscribe("/topic/qos0", 0);
-    msg_id = mqtt_client_subscribe("/topic/qos1", 1);
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-    ESP_LOGI(TAG, "PUBLICO whale_01");
-    msg_id = mqtt_client_publish("/topic/qos0", "data_blue_whale_01", 0, 0, 0);
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-    ESP_LOGI(TAG, "PUBLICO whale_02");
-    msg_id = mqtt_client_publish("/topic/qos1", "data_blue_whale_02", 0, 0, 0);
-
-
+    ESP_ERROR_CHECK(mqtt_app_start());
 
     // 2.- SERVICES LOOPS
 
@@ -252,6 +220,7 @@ typedef enum {
 
 
     // ENDLESS LOOP, REMOVE AND SUPRESS BY VALID CODE
+    // COMPARES SETPOINT vs. MEASURED TEMPERATURE AND TRIGGERS COMMAND ON/OFF
     //TickType_t tick;
 	for(;;) {
         TickType_t tick = xTaskGetTickCount();
@@ -274,6 +243,7 @@ typedef enum {
         struct tm timeinfo;
         localtime_r(&now1, &timeinfo);
 
+        int msg_id = 0;
         char valor[20]; 
         float deadband = 2;
         int result = deadband_check(BMP280_Measures.temperature, temperature_setpoint, deadband);
@@ -291,7 +261,10 @@ typedef enum {
                     msg_id = mqtt_client_publish("/home6532/room1/temp/value", valor, 0, 0, 0);
                     sprintf(valor, "%3.2f", temperature_setpoint.value);
                     msg_id = mqtt_client_publish("/home6532/room1/temp/setpoint", valor, 0, 0, 0);
-                    msg_id = mqtt_client_publish("/home6532/heater_cmd/", "OFF", 0, 0, 0);
+                    msg_id = mqtt_client_publish("/home6532/heater_cmd", "OFF", 0, 0, 0);
+                    if (heater_command.value_actual == 0) {strcpy(valor, "OFF");} else {strcpy(valor, "ON");};
+                    msg_id = mqtt_client_publish("/home6532/heater_stt", valor, 0, 0, 0);
+
                     }
                 break;
 
@@ -314,7 +287,9 @@ typedef enum {
                     msg_id = mqtt_client_publish("/home6532/room1/temp/value", valor, 0, 0, 0);
                     sprintf(valor, "%3.2f", temperature_setpoint.value);
                     msg_id = mqtt_client_publish("/home6532/room1/temp/setpoint", valor, 0, 0, 0);
-                    msg_id = mqtt_client_publish("/home6532/heater_cmd/", "ON", 0, 0, 0);                        
+                    msg_id = mqtt_client_publish("/home6532/heater_cmd", "ON", 0, 0, 0);       
+                    if (heater_command.value_actual == 0) {strcpy(valor, "OFF");} else {strcpy(valor, "ON");};
+                    msg_id = mqtt_client_publish("/home6532/heater_stt", valor, 0, 0, 0);
                     }
                 break;
 
@@ -336,9 +311,14 @@ typedef enum {
             msg_id = mqtt_client_publish("/home6532/room1/temp/value", valor, 0, 0, 0);
             sprintf(valor, "%3.2f", temperature_setpoint.value);
             msg_id = mqtt_client_publish("/home6532/room1/temp/setpoint", valor, 0, 0, 0);
+            if (heater_command.value_actual == 0) {strcpy(valor, "OFF");} else {strcpy(valor, "ON");};
+            msg_id = mqtt_client_publish("/home6532/heater_stt", valor, 0, 0, 0);
+
             }
 		}
 }
+
+
 
 
 // TODO- Eval also quality

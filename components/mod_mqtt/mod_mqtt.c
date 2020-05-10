@@ -32,6 +32,10 @@
 
 static const char *TAG = "MOD_MQTT";
 
+static esp_mqtt_client_handle_t client;     //MQTT client handle
+
+static bool mqtt_connected = false;    
+
 /*
 #if CONFIG_BROKER_CERTIFICATE_OVERRIDDEN == 1
 static const uint8_t mqtt_eclipse_org_pem_start[]  = "-----BEGIN CERTIFICATE-----\n" CONFIG_BROKER_CERTIFICATE_OVERRIDE "\n-----END CERTIFICATE-----";
@@ -41,9 +45,14 @@ extern const uint8_t mqtt_eclipse_org_pem_start[]   asm("_binary_mqtt_eclipse_or
 extern const uint8_t mqtt_eclipse_org_pem_end[]   asm("_binary_mqtt_eclipse_org_pem_end");
 */
 
-static esp_mqtt_client_handle_t client;
-static bool mqtt_connected = false;         // 
+    
 
+
+/****************************************************************************** 
+* mqtt_event_handler_cb
+*******************************************************************************
+ * @brief mqtt event handler 
+*******************************************************************************/
 static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 {
     esp_mqtt_client_handle_t client = event->client;
@@ -81,6 +90,7 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
             break;
 
         case MQTT_EVENT_BEFORE_CONNECT:
+        case MQTT_EVENT_ERROR:
             ESP_LOGI(TAG, "MQTT_EVENT_BEFORE_CONNECT");
             if (event->error_handle->error_type == MQTT_ERROR_TYPE_ESP_TLS) {
                 ESP_LOGI(TAG, "Last error code reported from esp-tls: 0x%x", event->error_handle->esp_tls_last_esp_err);
@@ -92,18 +102,6 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
             }
             break;
                 
-        case MQTT_EVENT_ERROR:
-            ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
-            if (event->error_handle->error_type == MQTT_ERROR_TYPE_ESP_TLS) {
-                ESP_LOGI(TAG, "Last error code reported from esp-tls: 0x%x", event->error_handle->esp_tls_last_esp_err);
-                ESP_LOGI(TAG, "Last tls stack error number: 0x%x", event->error_handle->esp_tls_stack_err);
-            } else if (event->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED) {
-                ESP_LOGI(TAG, "Connection refused error: 0x%x", event->error_handle->connect_return_code);
-            } else {
-                ESP_LOGW(TAG, "Unknown error type: 0x%x", event->error_handle->error_type);
-            }
-            break;
-
         default:
             ESP_LOGI(TAG, "Other event id:%d", event->event_id);
             break;
@@ -121,12 +119,11 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
 
 /****************************************************************************** 
-* mqtt_app_start
+* mqtt_client_start
 *******************************************************************************
  * @brief starts mqtt client. 
 *******************************************************************************/
- esp_err_t mqtt_app_start(void)
-{
+ esp_err_t mqtt_app_start(void){
 
 /*
    const esp_mqtt_client_config_t mqtt_cfg = {
@@ -147,12 +144,31 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     return (err);
 }
 
+/****************************************************************************** 
+* mqtt_client_stop in active mqtt client
+*******************************************************************************
+ * @brief stop mqtt client. 
+*******************************************************************************/
+int mqtt_client_stop(void){
+    int msg_id = esp_mqtt_client_stop(client);
+    return(msg_id);    
+}
+
+/****************************************************************************** 
+* mqtt_client_reconnect in active mqtt client
+*******************************************************************************
+ * @brief reconnects mqtt client. 
+*******************************************************************************/
+int mqtt_client_reconnect(void){
+    int msg_id = esp_mqtt_client_stop(client);
+    return(msg_id);    
+}
 
 
 /****************************************************************************** 
 * mqtt_client_publish in active mqtt client
 *******************************************************************************
- * @brief starts mqtt client. 
+ * @brief publish in actual mqtt client. 
  * @param[in] *topic -> topic in which we write  
  * @param[in] *data -> published data 
  * @param[in] len   -> data lenght
@@ -168,7 +184,7 @@ int mqtt_client_publish(const char *topic, const char *data, int len, int qos, i
 /****************************************************************************** 
 * mqtt_client_subscribe in active mqtt client
 *******************************************************************************
- * @brief starts mqtt client. 
+ * @brief subscribes on actual mqtt client. 
  * @param[in] *topic -> topic in which we write  
  * @param[in] qos   -> quality of service (0,1,2)
 *******************************************************************************/
@@ -178,15 +194,32 @@ int mqtt_client_subscribe(const char *topic, int qos){
 }
 
 
+/****************************************************************************** 
+* mqtt_client_unsubscribe in active mqtt client
+*******************************************************************************
+ * @brief unsubscribes on mqtt client. 
+ * @param[in] *topic -> topic in which we write  
+ * @param[in] qos   -> quality of service (0,1,2)
+*******************************************************************************/
+int mqtt_client_unubscribe(const char *topic, int qos){
+    int msg_id = esp_mqtt_client_unsubscribe(client, topic);
+    return(msg_id);    
+}
+
+
+
+
+
 
 /*
-msg_id = esp_mqtt_client_subscribe(client, "/topic/qos0", 0);
-ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
 
 msg_id = esp_mqtt_client_subscribe(client, "/topic/qos1", 1);
 ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
 
 msg_id = esp_mqtt_client_unsubscribe(client, "/topic/qos1");
 ESP_LOGI(TAG, "sent unsubscribe successful, msg_id=%d", msg_id);
+
+msg_id = mqtt_client_publish("/topic/qos0", "data_blue_whale_01", 0, 0, 0);
+
 */ 
 
