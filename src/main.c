@@ -1,6 +1,6 @@
 
 
-/* Heater Control Test. Prototype B 
+/* Heater Control Test. Prototype C 
 
    This example code is in the Public Domain (or CC0 licensed, at your option.)
 
@@ -26,6 +26,10 @@
 #include "sntp2.h"
 //#include "sensor.h"
 //#include "driver/gpio.h"
+
+#include "mod_mqtt.h"
+#include "mqtt_client.h"
+
 
 #define DELAY_1s             (pdMS_TO_TICKS( 1000))
 #define DELAY_2s             (pdMS_TO_TICKS( 2000))
@@ -61,15 +65,40 @@ int deadband_check(measure_t measure, measure_t setpoint, float deadband);
 void app_main()
 {
 
-    // DEFINIR LOS NIVELES DE LOG POR TAG
-    esp_log_level_set("BMP280_CTRL_LOOP", 1);
-    esp_log_level_set("HEATER_CTRL", 3);        // tiene compilacion condicional para errores
-    esp_log_level_set("wifi", 3);
-    esp_log_level_set("event", 1);
-    esp_log_level_set("WIFI01", 3);
-    esp_log_level_set("TASK_PROGRAMMER01", 1);
-    esp_log_level_set("WIFI_EXAMPLE", 3);           // REMOVE? CHECK
-    esp_log_level_set("protoC", 3);
+    ESP_LOGI(TAG, "[APP] Startup..");
+    ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
+    ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
+
+/*
+typedef enum {
+    ESP_LOG_NONE,       //!< No log output
+    ESP_LOG_ERROR,      //!< Critical errors, software module can not recover on its own 
+    ESP_LOG_WARN,       //!< Error conditions from which recovery measures have been taken
+    ESP_LOG_INFO,       //!< Information messages which describe normal flow of events 
+    ESP_LOG_DEBUG,      //!< Extra information which is not necessary for normal use (values, pointers, sizes, etc). 
+    ESP_LOG_VERBOSE     //!< Bigger chunks of debugging information, or frequent messages which can potentially flood the output. 
+} esp_log_level_t;
+*/
+
+    esp_log_level_set("BMP280_CTRL_LOOP",   ESP_LOG_ERROR);
+    esp_log_level_set("HEATER_CTRL",        ESP_LOG_ERROR);        // tiene compilacion condicional para errores
+    esp_log_level_set("wifi",               ESP_LOG_ERROR);
+    esp_log_level_set("event",              ESP_LOG_ERROR);
+    esp_log_level_set("WIFI01",             ESP_LOG_ERROR);
+    esp_log_level_set("TASK_PROGRAMMER01",  ESP_LOG_ERROR);
+    esp_log_level_set("WIFI_EXAMPLE",       ESP_LOG_ERROR);           // REMOVE? CHECK
+    esp_log_level_set("MOD_MQTT",             ESP_LOG_INFO);
+    esp_log_level_set("protoC",             ESP_LOG_INFO);
+
+    // inherited from mqtt examples
+    //esp_log_level_set("*", ESP_LOG_INFO);
+    esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
+    esp_log_level_set("MQTT_EXAMPLE", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
+    esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
+
 
 	// time setting
     time_t now;
@@ -112,12 +141,13 @@ void app_main()
     // COMMON I2C "services" (mutex access control)
     ESP_ERROR_CHECK(i2cdev_init());
 
-
 	// Activate wifi and get time via NTP Server
 	// TODO: Start/stop Connectivity (WIFI / GPRS/OTHERS)
 	// TODO: Validate time is correct before activating programmer
-       wifi_activate(true, true);
+    wifi_activate(true, true);
 
+    // mqtt_Start. Requiere wifi activada y los servicios que aparecen abajo, que ya han sido activados para la wifi
+    ESP_ERROR_CHECK(mqtt_app_start());
 
     // 2.- SERVICES LOOPS
 
@@ -190,6 +220,7 @@ void app_main()
 
 
     // ENDLESS LOOP, REMOVE AND SUPRESS BY VALID CODE
+    // COMPARES SETPOINT vs. MEASURED TEMPERATURE AND TRIGGERS COMMAND ON/OFF
     //TickType_t tick;
 	for(;;) {
         TickType_t tick = xTaskGetTickCount();
@@ -212,6 +243,8 @@ void app_main()
         struct tm timeinfo;
         localtime_r(&now1, &timeinfo);
 
+        int msg_id = 0;
+        char valor[20]; 
         float deadband = 2;
         int result = deadband_check(BMP280_Measures.temperature, temperature_setpoint, deadband);
         switch (result){
@@ -222,6 +255,16 @@ void app_main()
                     ESP_LOGI(TAG, "%d / %d:%d SET HEATER OFF. Setpoint: %f, Temperature:%f ", 
                         timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
                         temperature_setpoint.value, BMP280_Measures.temperature.value);
+
+                    // MQTT Publish
+                    sprintf(valor, "%3.2f", BMP280_Measures.temperature.value);
+                    msg_id = mqtt_client_publish("/home6532/room1/temp/value", valor, 0, 0, 0);
+                    sprintf(valor, "%3.2f", temperature_setpoint.value);
+                    msg_id = mqtt_client_publish("/home6532/room1/temp/setpoint", valor, 0, 0, 0);
+                    msg_id = mqtt_client_publish("/home6532/heater_cmd", "OFF", 0, 0, 0);
+                    if (heater_command.value_actual == 0) {strcpy(valor, "OFF");} else {strcpy(valor, "ON");};
+                    msg_id = mqtt_client_publish("/home6532/heater_stt", valor, 0, 0, 0);
+
                     }
                 break;
 
@@ -238,13 +281,21 @@ void app_main()
                     ESP_LOGI(TAG, "%d / %d:%d SET HEATER ON. Setpoint: %f, Temperature:%f ", 
                         timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
                         temperature_setpoint.value, BMP280_Measures.temperature.value);
+
+                    // MQTT Publish
+                    sprintf(valor, "%3.2f", BMP280_Measures.temperature.value);
+                    msg_id = mqtt_client_publish("/home6532/room1/temp/value", valor, 0, 0, 0);
+                    sprintf(valor, "%3.2f", temperature_setpoint.value);
+                    msg_id = mqtt_client_publish("/home6532/room1/temp/setpoint", valor, 0, 0, 0);
+                    msg_id = mqtt_client_publish("/home6532/heater_cmd", "ON", 0, 0, 0);       
+                    if (heater_command.value_actual == 0) {strcpy(valor, "OFF");} else {strcpy(valor, "ON");};
+                    msg_id = mqtt_client_publish("/home6532/heater_stt", valor, 0, 0, 0);
                     }
                 break;
 
             // TODO: Casos en los que la calidad sea mala, decidir qué hacer
             // TODO: Convertir en caso general, dar mismo tratamiento a todas las salidas    
             }
-
 
 
         if ((timeinfo.tm_min%15) == 0){
@@ -254,15 +305,20 @@ void app_main()
                     temperature_setpoint.value, temperature_setpoint.quality,
                     BMP280_Measures.temperature.value, BMP280_Measures.temperature.displayUnit, BMP280_Measures.temperature.quality, 
                     strftime_sync_buf);
-            /*        
-            ESP_LOGI(TAG,  "%d / %d:%d Trace........ BMP280.Temp(q= %d): %3.2f %s / BMP280.Press(q= %d): %6.2f %s", 
-                timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
-                BMP280_Measures.temperature.quality, BMP280_Measures.temperature.value, BMP280_Measures.temperature.displayUnit, 
-                BMP280_Measures.pressure.quality, BMP280_Measures.pressure.value, BMP280_Measures.pressure.displayUnit);
-            */
+
+                    // MQTT Publish
+            sprintf(valor, "%3.2f", BMP280_Measures.temperature.value);
+            msg_id = mqtt_client_publish("/home6532/room1/temp/value", valor, 0, 0, 0);
+            sprintf(valor, "%3.2f", temperature_setpoint.value);
+            msg_id = mqtt_client_publish("/home6532/room1/temp/setpoint", valor, 0, 0, 0);
+            if (heater_command.value_actual == 0) {strcpy(valor, "OFF");} else {strcpy(valor, "ON");};
+            msg_id = mqtt_client_publish("/home6532/heater_stt", valor, 0, 0, 0);
+
             }
 		}
 }
+
+
 
 
 // TODO- Eval also quality
