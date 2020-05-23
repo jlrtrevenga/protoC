@@ -1,12 +1,41 @@
-# Boiler Control Prototype B
+# Boiler Control Prototype C
 
-ESP32 Boiler Controller
+ESP32 Heater Controller
 
 Actual Status:
 
-- Main structure design: Independent tasks, controlled via events.
-- control loop
-- BMP280 sensor read loop
+- Main structure design: 
+    - Independent tasks, start/stop on demand. 
+    - intercommunication via events (not yet finished)
+    - Core common structure to implement functionalities on top of core services.
+
+Tasks/functionalities:
+    - Core services:
+        - i2c comms task.
+            - BMP280 reading.
+        - gpio interrupt task handle.
+            - OUTPUT relay control.
+        - Wifi + ntp task (correct recovery on comm failure)
+        - MQTT comm task.
+    - Process functionalities:
+        - Weekly temperature programm + Output relay control.
+
+
+Pending:
+    - I/O structure reorganization.
+    - complete modular task structure.
+    - GSM communications.
+    - ESP Now / ESP mesh comm to secondary modules.
+    - JTAG enable (prototipe)
+    - check MQTT reconnection (some errors detected)
+    - JSON structure (comms to Heater control app)
+    - Security:
+        - Alternative 1: 
+            - MQTT: certificates use.
+        - Alternative 2:
+            - Integration to Azure / AWS Services.
+            - Include provisioning service + certificates.
+
 
 
 ## Getting Started

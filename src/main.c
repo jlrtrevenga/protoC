@@ -29,6 +29,7 @@
 
 #include "mod_mqtt.h"
 #include "mqtt_client.h"
+#include "mod_gpio.h"
 
 
 #define DELAY_1s             (pdMS_TO_TICKS( 1000))
@@ -252,6 +253,7 @@ typedef enum {
                 heater_command.value_prev = heater_command.value_actual;
                 heater_command.value_actual = 0;
                 if (heater_command.value_actual != heater_command.value_prev){
+                    //gpio_set_level(GPIO_OUTPUT_01, OFF);                                        // GPIO_01 = BOILER 
                     ESP_LOGI(TAG, "%d / %d:%d SET HEATER OFF. Setpoint: %f, Temperature:%f ", 
                         timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
                         temperature_setpoint.value, BMP280_Measures.temperature.value);
@@ -278,6 +280,7 @@ typedef enum {
                 heater_command.value_prev = heater_command.value_actual;
                 heater_command.value_actual = 1;
                 if (heater_command.value_actual != heater_command.value_prev){
+                    //gpio_set_level(GPIO_OUTPUT_01, ON);                                        // GPIO_01 = BOILER                     
                     ESP_LOGI(TAG, "%d / %d:%d SET HEATER ON. Setpoint: %f, Temperature:%f ", 
                         timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
                         temperature_setpoint.value, BMP280_Measures.temperature.value);
