@@ -15,3 +15,4 @@ idf_component_register(
 	INCLUDE_DIRS ${comp_includes}	
     	REQUIRES bmp280 sensor heater_ctrl mod_mqtt
 	)
+

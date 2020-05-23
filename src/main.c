@@ -1,7 +1,4 @@
-
-
 /* Heater Control Test. Prototype C 
-
    This example code is in the Public Domain (or CC0 licensed, at your option.)
 
    Unless required by applicable law or agreed to in writing, this
@@ -29,6 +26,7 @@
 
 #include "mod_mqtt.h"
 #include "mqtt_client.h"
+#include "mod_gpio.h"
 
 
 #define DELAY_1s             (pdMS_TO_TICKS( 1000))
@@ -41,6 +39,7 @@
 
 #define DEBUG_EVENTS 0              // 0:NO DEBUG , 1:DEBUG
 
+
 //GPIO DEFINITION
 //#define GPIO_INPUT_IO_0     12
 //#define GPIO_INPUT_IO_1     14
@@ -49,6 +48,10 @@
 //I2C GPIO
 #define SDA_GPIO 21
 #define SCL_GPIO 22
+
+// heater weekly initial active pattern
+#define ACTIVE_PATTERN  2
+#define LOOP_PERIOD     1000
 
 
 static const char* TAG = "protoC";
@@ -64,7 +67,6 @@ int deadband_check(measure_t measure, measure_t setpoint, float deadband);
 //*****************************************************************************
 void app_main()
 {
-
     ESP_LOGI(TAG, "[APP] Startup..");
     ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
     ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
@@ -118,7 +120,7 @@ typedef enum {
     static DO_t heater_command;
     heater_command.value_actual = 0;
     heater_command.value_prev = 0;
-
+    int err = 0;
 
     // 
     ESP_LOGI(TAG, "event loop setup");
@@ -153,43 +155,24 @@ typedef enum {
 
     // 2.1.- heater_ctrl task loop: Init "heater control loop parameters" and create task
     
-    measure_t temperature_setpoint;
+    measure_t temperature_setpoint;             // TODO: Sacarlo a IO_general
+    heaterConfig_t config, *pxconfig;
+    config.ulLoopPeriod = LOOP_PERIOD;
+    config.active_pattern = ACTIVE_PATTERN;
+    config.event_loop_handle = event_loop_h;
+    config.pxtemperature = &temperature_setpoint;
+    pxconfig = &config;
 
-    heater_ctrl_loop_params_t heater_ctrl_loop_params;
-    heater_ctrl_loop_params.event_loop_handle = event_loop_h;
-    heater_ctrl_loop_params.ulLoopPeriod = 1000;
-    heater_ctrl_loop_params.pxTaskHandle = NULL;
-    heater_ctrl_loop_params.pxtemperature = &temperature_setpoint;
+    err = heater_init(pxconfig);
+    err = heater_start();
 
-    heater_ctrl_loop_params_t* pxheater_ctrl_loop_params = NULL;
-    pxheater_ctrl_loop_params = &heater_ctrl_loop_params;
-
-    //static const char *pxTask01parms = "Task 1 is running\r\n"; 
-    if ( xTaskCreatePinnedToCore(&heater_ctrl_loop, "heater_ctrl_loop", 1024 * 2, 
-                                 (void*) pxheater_ctrl_loop_params, 5,
-                                 heater_ctrl_loop_params.pxTaskHandle, APP_CPU_NUM) != pdPASS ) {    
-        ESP_LOGE(TAG, "heater_ctrl task creation failed");
-        } 
-    else { ESP_LOGI(TAG, "heater_ctrl task created"); }
-
-
-#if DEBUG_EVENTS == 1
-    // 2.1.1.- heater_test task, only for testing event reception and processing
-    // TODO: Remove when tested.
-
-    if ( xTaskCreatePinnedToCore(&heater_test_loop, "heater_test_loop", 1024 * 2, 
-                                NULL, 5, NULL, APP_CPU_NUM) != pdPASS ) {
-        ESP_LOGE(TAG, "heater_test creation failed");
-    } else {
-        ESP_LOGI(TAG, "heater_test created\r\n");
-    }
-#endif
 
     // 2.2.- bmp280_ctrl task loop: Init "bmp280 control loop parameters" and create task
 
     BMP280_Measures_t BMP280_Measures;      // Values are updated in background by bmp280_control_loop
-
     BMP280_control_loop_params_t BMP280_ctrl_loop_params;
+    BMP280_control_loop_params_t* pxBMP280_ctrl_loop_params = NULL;
+    
     BMP280_ctrl_loop_params.event_loop_handle = event_loop_h;
     BMP280_ctrl_loop_params.ulLoopPeriod = 1000;
     BMP280_ctrl_loop_params.pxTaskHandle = NULL;
@@ -197,7 +180,6 @@ typedef enum {
     BMP280_ctrl_loop_params.scl_gpio = SCL_GPIO;
     BMP280_ctrl_loop_params.pxBMP280_Measures = &BMP280_Measures;
 
-    BMP280_control_loop_params_t* pxBMP280_ctrl_loop_params = NULL;
     pxBMP280_ctrl_loop_params = &BMP280_ctrl_loop_params;
 
     if ( xTaskCreatePinnedToCore(&bmp280_ctrl_loop, "bmp280_ctrl_loop", 1024 * 2, 
@@ -252,6 +234,7 @@ typedef enum {
                 heater_command.value_prev = heater_command.value_actual;
                 heater_command.value_actual = 0;
                 if (heater_command.value_actual != heater_command.value_prev){
+                    //gpio_set_level(GPIO_OUTPUT_01, OFF);                                        // GPIO_01 = BOILER 
                     ESP_LOGI(TAG, "%d / %d:%d SET HEATER OFF. Setpoint: %f, Temperature:%f ", 
                         timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
                         temperature_setpoint.value, BMP280_Measures.temperature.value);
@@ -278,6 +261,7 @@ typedef enum {
                 heater_command.value_prev = heater_command.value_actual;
                 heater_command.value_actual = 1;
                 if (heater_command.value_actual != heater_command.value_prev){
+                    //gpio_set_level(GPIO_OUTPUT_01, ON);                                        // GPIO_01 = BOILER                     
                     ESP_LOGI(TAG, "%d / %d:%d SET HEATER ON. Setpoint: %f, Temperature:%f ", 
                         timeinfo.tm_wday, timeinfo.tm_hour, timeinfo.tm_min,
                         temperature_setpoint.value, BMP280_Measures.temperature.value);

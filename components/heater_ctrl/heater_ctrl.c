@@ -6,10 +6,12 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <esp_system.h>
 #include "esp_log.h"
 #include "esp_event_base.h"
+#include <esp_event.h>
 #include "task_programmer01.h"
 #include "heater_ctrl.h"
 #include "sensor.h"
@@ -18,6 +20,8 @@
 #define DELAY_2s             (pdMS_TO_TICKS( 2000))
 #define DELAY_5s             (pdMS_TO_TICKS( 5000))
 #define EVENT_MAX_DELAY      (pdMS_TO_TICKS( 5000))
+#define ACTIVE_PATTERN  2
+#define LOOP_PERIOD     1000
 
 #define DEBUG_MSG_LEVEL 3                           // 1:every minute / 2:every hour // 3: on event // 4: On error // >4: Never 
 
@@ -26,44 +30,157 @@ static const char* TAG = "HEATER_CTRL";             // Task identifier
 ESP_EVENT_DEFINE_BASE(HEATER_EVENTS);               // Event source task related definitions
 
 // Heater Control Loop Parameters, received via pvParameter when the loop task is created.
-heater_ctrl_loop_params_t  heater_ctrl_loop_params;
+static heaterConfig_t heaterConfig, *pxheaterConfig;
+static TaskHandle_t *pxHeaterTaskHandle;           
+static bool heater_initialized = false;
+
+/****************************************************************************** 
+* heater_init
+*******************************************************************************
+ * @brief initializes heater: loads initial program and registers heater events., creates task that returns setpoint temperature according to program. 
+ * @param[in] heaterConfig_t configuration values. 
+ * @param[in] sntp_sync = true -> connect to snmt servers and get time
+*******************************************************************************/
+int heater_init(heaterConfig_t *config){
+
+    // Init task global variables
+    (config->ulLoopPeriod == NULL) ? (heaterConfig.ulLoopPeriod = LOOP_PERIOD) : (heaterConfig.ulLoopPeriod = config->ulLoopPeriod);
+    (config->active_pattern == NULL) ? (heaterConfig.active_pattern = ACTIVE_PATTERN) : (heaterConfig.active_pattern = config->active_pattern);
+    heaterConfig.pxtemperature = config->pxtemperature;
+    heaterConfig.event_loop_handle = config->event_loop_handle;
+    pxheaterConfig = &heaterConfig; 
+
+    // Register events
+    ESP_ERROR_CHECK(esp_event_handler_register_with(heaterConfig.event_loop_handle , HEATER_EVENTS, ESP_EVENT_ANY_ID, heater_event_handler, NULL));
+
+    // Init task programmer structures and activate weekly pattern = 2      
+    int error = 0;
+    tp_init_structures();
+    error = tp_activate_weekly_pattern(heaterConfig.active_pattern);
+    heater_initialized = true;
+    return(0);                                                                  // TODO: send return value depending or correct execution
+}
 
 
-//***************************************************************************** 
-//heater control task loop
-//*****************************************************************************
-void heater_ctrl_loop(void *pvParameter)
+/****************************************************************************** 
+* heater_start
+*******************************************************************************
+ * @brief initializes heater: Creates task that returns setpoint temperature according to program. 
+ * @return: 0:OK / 1: Task creation failed / 2: heater not initialized
+ *******************************************************************************/
+int heater_start(void){
+    if (heater_initialized){
+        if ( xTaskCreatePinnedToCore(&heater_ctrl_loop, "heater_ctrl_loop", 1024 * 2, 
+                                    (void*) pxheaterConfig, 5,
+                                    pxHeaterTaskHandle, 1) == pdPASS ) {         //APP_CPU_NUM, tskNO_AFFINITY 
+            ESP_LOGI(TAG, "heater_ctrl task created");
+            return(0);
+            } 
+        else { 
+            ESP_LOGE(TAG, "heater_ctrl task creation failed");
+            return(1);
+        }
+    }
+    else {
+        ESP_LOGE(TAG, "heater not initialized");        
+        return(2);
+    }
+}
+
+
+/****************************************************************************** 
+* heater_test_events
+*******************************************************************************
+ * @brief tests events: Creates task that periodically sends valid events
+ * @return: 0:OK / 1: Task creation failed 
+ *******************************************************************************/
+int heater_test_events(void){
+    if ( xTaskCreatePinnedToCore(&heater_test_loop, "heater_test_loop", 1024 * 2, 
+                                NULL, 5, NULL, tskNO_AFFINITY) == pdPASS ) {
+        ESP_LOGI(TAG, "heater_test created\r\n");
+        return(0); 
+    } else {
+        ESP_LOGE(TAG, "heater_test creation failed");
+        return(1);       
+    }
+}
+
+
+
+/****************************************************************************** 
+* heater_event_handler
+*******************************************************************************
+ * @brief reacts upon events. No event info included, to be improved.
+ * *******************************************************************************/
+void heater_event_handler(void* handler_args, esp_event_base_t base, int32_t id, void* event_data) 
 {
-    //Copy "Heater Control Loop Parameters" on task creation.
-    heater_ctrl_loop_params_t* pxheater_ctrl_loop_params = (heater_ctrl_loop_params_t*) pvParameter;
-    heater_ctrl_loop_params.event_loop_handle = pxheater_ctrl_loop_params->event_loop_handle;
-    heater_ctrl_loop_params.ulLoopPeriod      = pxheater_ctrl_loop_params->ulLoopPeriod;
-    heater_ctrl_loop_params.pxtemperature     = pxheater_ctrl_loop_params->pxtemperature;
+    ESP_LOGI(TAG, "EVENT_HANDLER: Event received: %s:%d", base, id);
+
+    switch (id) {
+
+    case HEATER_EVENT_SETTING_UPDATE:                                   
+   		//vTaskDelay(2000 / portTICK_PERIOD_MS);
+        ESP_LOGI(TAG, "Event processed: HEATER_EVENT_SETTING_UPDATE");   
+        break;
+
+    case HEATER_EVENT_PROGRAM_UPDATE:
+        //vTaskDelay(2000 / portTICK_PERIOD_MS);
+        ESP_LOGI(TAG, "Event processed: HEATER_EVENT_PROGRAM_UPDATE");   
+        break;
+
+
+    case HEATER_EVENT_TEMP_UPDATE:                                      
+        //vTaskDelay(2000 / portTICK_PERIOD_MS);
+        ESP_LOGI(TAG, "Event processed: HEATER_EVENT_TEMP_UPDATE");   
+        break;
+
+    case HEATER_EVENT_TIME_UPDATE:
+        //vTaskDelay(2000 / portTICK_PERIOD_MS);
+        ESP_LOGI(TAG, "Event processed: HEATER_EVENT_TIME_UPDATE");   
+        break;
+
+    case HEATER_EVENT_HEATER_UPDATE:
+        //vTaskDelay(2000 / portTICK_PERIOD_MS);
+        ESP_LOGI(TAG, "Event processed: HEATER_EVENT_HEATER_UPDATE");   
+        break;
+
+    default:
+        //vTaskDelay(2000 / portTICK_PERIOD_MS);
+        ESP_LOGI(TAG, "Event processed: default");   
+        break;    
+    }
+
+}
+
+
+/****************************************************************************** 
+* heater_ctrl_loop
+*******************************************************************************
+ * @brief heaterConfig_t* pv -> Creates task loop that evaluates weekly temperature 
+ *                              program and returns actual temperature_setpoint.
+ *******************************************************************************/
+void heater_ctrl_loop(void *pvParameter) {
+    heaterConfig_t* pxconfig_par = (heaterConfig_t*) pvParameter;
+    heaterConfig_t config;
+    config.ulLoopPeriod      = pxconfig_par->ulLoopPeriod;
+    config.pxtemperature     = pxconfig_par->pxtemperature;
+    config.event_loop_handle = pxconfig_par->event_loop_handle;
 
     // General variables definitions
+    int error = 0;
+    TickType_t tick; 
     time_t now;
     struct tm timeinfo;
     static bool override_active = false;
-    TickType_t tick;    
     static bool *poverride_active = &override_active;
     static int temperature = 0;
     static int *ptemperature = &temperature;
     static int override_temperature = 0;
     static int *poverride_temperature = &override_temperature; 
 
-    ESP_LOGI(TAG, "Process Start. Register Events.");
-    ESP_ERROR_CHECK(esp_event_handler_register_with(heater_ctrl_loop_params.event_loop_handle, HEATER_EVENTS, ESP_EVENT_ANY_ID, heater_event_handler, NULL));
-    ESP_LOGI(TAG, "Process Start. Periodic Loop Check.");
-
-    // Init task programmer structures and activate weekly pattern = 2      
-    int error = 0;
-    int active_pattern = 2;                                                             // TODO -> Convert to #define value. Should be stored in nvm variable
-
-    tp_init_structures();
-    error = tp_activate_weekly_pattern(active_pattern);
 	for(;;) {
 		//ESP_LOGI(TAG, "Periodic check, time based.");
-		vTaskDelay(heater_ctrl_loop_params.ulLoopPeriod / portTICK_PERIOD_MS);          // Definir cada minuto
+		vTaskDelay(config.ulLoopPeriod / portTICK_PERIOD_MS);          // Definir cada minuto
 
         time(&now);
         localtime_r(&now, &timeinfo);
@@ -72,15 +189,15 @@ void heater_ctrl_loop(void *pvParameter)
         error = tp_get_target_value(now, poverride_active, poverride_temperature, ptemperature);
 
         tick = xTaskGetTickCount();  
-        heater_ctrl_loop_params.pxtemperature->tickTime = tick;  
-        heater_ctrl_loop_params.pxtemperature->value = (float) *ptemperature;
+        config.pxtemperature->tickTime = tick;  
+        config.pxtemperature->value = (float) *ptemperature;
 
         // pxheater_ctrl_loop_params->pxtemperature->quality is calculated based on error value
         switch (error){
                     
             // No time transition => keep temperature reference
             case 0:
-                pxheater_ctrl_loop_params->pxtemperature->quality = GOOD_QUALITY;
+                config.pxtemperature->quality = GOOD_QUALITY;
 
                 #if DEBUG_MSG_LEVEL == 1                    // minuto
                         ESP_LOGI(TAG, "TIME, Day: %d, %d:%d:%d -> Keep temperature %d ºC: ", 
@@ -98,7 +215,7 @@ void heater_ctrl_loop(void *pvParameter)
 
             // Time transition => Set new temperarture reference and reset override temperature.
             case 1:
-                pxheater_ctrl_loop_params->pxtemperature->quality = GOOD_QUALITY;
+                config.pxtemperature->quality = GOOD_QUALITY;
 
                 #if DEBUG_MSG_LEVEL <= 3                    // on event
                     ESP_LOGI(TAG, "TIME, Day: %d, %d:%d:%d -> New temperature Setpoint %d ºC: ", 
@@ -109,7 +226,7 @@ void heater_ctrl_loop(void *pvParameter)
 
             // Time transition  ERROR => Report error.
             default: 
-                heater_ctrl_loop_params.pxtemperature->quality = BAD_QUALITY;
+                config.pxtemperature->quality = BAD_QUALITY;
 
                 #if DEBUG_MSG_LEVEL <= 4                    // on event
                      ESP_LOGE(TAG, "TIME, Day: %d, Time: %d:%d:%d -> ERROR(%d) ----------------", 
@@ -118,9 +235,37 @@ void heater_ctrl_loop(void *pvParameter)
 
                 break;
         }
-  
-		}
+        ESP_ERROR_CHECK(esp_event_post_to(heaterConfig.event_loop_handle, HEATER_EVENTS, HEATER_EVENT_TEMP_SP_UPDATE, NULL, 0, DELAY_5s));
+	}
+}
 
+
+
+//********************************************************************************************* 
+//heater event test: Throws one event of each type to test it is received in an infinite loop
+//*********************************************************************************************
+void heater_test_loop(void *pvParameter)
+{
+//esp_err_t err;
+
+	for(;;) {
+		ESP_LOGI(TAG, ": Scheduled IN, start delay");
+
+        ESP_ERROR_CHECK(esp_event_post_to(heaterConfig.event_loop_handle, HEATER_EVENTS, HEATER_EVENT_SETTING_UPDATE, NULL, 0, DELAY_5s));
+		vTaskDelay(DELAY_5s);
+
+        ESP_ERROR_CHECK(esp_event_post_to(heaterConfig.event_loop_handle, HEATER_EVENTS, HEATER_EVENT_PROGRAM_UPDATE, NULL, 0, DELAY_5s));
+		vTaskDelay(DELAY_5s);
+
+        ESP_ERROR_CHECK(esp_event_post_to(heaterConfig.event_loop_handle, HEATER_EVENTS, HEATER_EVENT_TEMP_UPDATE, NULL, 0, DELAY_5s));
+		vTaskDelay(DELAY_5s);
+
+        ESP_ERROR_CHECK(esp_event_post_to(heaterConfig.event_loop_handle, HEATER_EVENTS, HEATER_EVENT_TIME_UPDATE, NULL, 0, DELAY_5s));
+		vTaskDelay(DELAY_5s);
+
+        ESP_ERROR_CHECK(esp_event_post_to(heaterConfig.event_loop_handle, HEATER_EVENTS, HEATER_EVENT_HEATER_UPDATE, NULL, 0, DELAY_5s));
+		vTaskDelay(DELAY_5s);
+		}
 }
 
 
@@ -144,73 +289,3 @@ void heater_ctrl_loop(void *pvParameter)
 */
 
 
-
-
-//***************************************************************************** 
-//heater control events handler
-//*****************************************************************************
-void heater_event_handler(void* handler_args, esp_event_base_t base, int32_t id, void* event_data) 
-{
-    ESP_LOGI(TAG, "EVENT_HANDLER: Event received: %s:%d", base, id);
-
-    switch (id) {
-
-    case HEATER_EVENT_SETTING_UPDATE:                                   // 
-   		//vTaskDelay(2000 / portTICK_PERIOD_MS);
-        ESP_LOGI(TAG, "Event processed: HEATER_EVENT_SETTING_UPDATE");   
-        break;
-
-    case HEATER_EVENT_PROGRAM_UPDATE:
-        //vTaskDelay(2000 / portTICK_PERIOD_MS);
-        ESP_LOGI(TAG, "Event processed: HEATER_EVENT_PROGRAM_UPDATE");   
-        break;
-
-    case HEATER_EVENT_TEMP_UPDATE:                                      // OVERRIDE TEMPERATURE UPDATE
-        //vTaskDelay(2000 / portTICK_PERIOD_MS);
-        ESP_LOGI(TAG, "Event processed: HEATER_EVENT_TEMP_UPDATE");   
-        break;
-
-    case HEATER_EVENT_TIME_UPDATE:
-        //vTaskDelay(2000 / portTICK_PERIOD_MS);
-        ESP_LOGI(TAG, "Event processed: HEATER_EVENT_TIME_UPDATE");   
-        break;
-
-    case HEATER_EVENT_HEATER_UPDATE:
-        //vTaskDelay(2000 / portTICK_PERIOD_MS);
-        ESP_LOGI(TAG, "Event processed: HEATER_EVENT_HEATER_UPDATE");   
-        break;
-
-    default:
-        //vTaskDelay(2000 / portTICK_PERIOD_MS);
-        ESP_LOGI(TAG, "Event processed: default");   
-        break;    
-    }
-
-}
-
-//********************************************************************************************* 
-//heater event test: Throws one event of each type to test it is received in an infinite loop
-//*********************************************************************************************
-void heater_test_loop(void *pvParameter)
-{
-//esp_err_t err;
-
-	for(;;) {
-		ESP_LOGI(TAG, ": Scheduled IN, start delay");
-
-        ESP_ERROR_CHECK(esp_event_post_to(heater_ctrl_loop_params.event_loop_handle, HEATER_EVENTS, HEATER_EVENT_SETTING_UPDATE, NULL, 0, EVENT_MAX_DELAY));
-		vTaskDelay(DELAY_5s);
-
-        ESP_ERROR_CHECK(esp_event_post_to(heater_ctrl_loop_params.event_loop_handle, HEATER_EVENTS, HEATER_EVENT_PROGRAM_UPDATE, NULL, 0, EVENT_MAX_DELAY));
-		vTaskDelay(DELAY_5s);
-
-        ESP_ERROR_CHECK(esp_event_post_to(heater_ctrl_loop_params.event_loop_handle, HEATER_EVENTS, HEATER_EVENT_TEMP_UPDATE, NULL, 0, EVENT_MAX_DELAY));
-		vTaskDelay(DELAY_5s);
-
-        ESP_ERROR_CHECK(esp_event_post_to(heater_ctrl_loop_params.event_loop_handle, HEATER_EVENTS, HEATER_EVENT_TIME_UPDATE, NULL, 0, EVENT_MAX_DELAY));
-		vTaskDelay(DELAY_5s);
-
-        ESP_ERROR_CHECK(esp_event_post_to(heater_ctrl_loop_params.event_loop_handle, HEATER_EVENTS, HEATER_EVENT_HEATER_UPDATE, NULL, 0, EVENT_MAX_DELAY));
-		vTaskDelay(DELAY_5s);
-		}
-}
