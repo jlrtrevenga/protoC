@@ -9,7 +9,7 @@ Actual Status:
     - intercommunication via events (not yet finished)
     - Core common structure to implement functionalities on top of core services.
 
-Tasks/functionalities:
+- Tasks/functionalities:
     - Core services:
         - i2c comms task.
             - BMP280 reading.
@@ -21,7 +21,7 @@ Tasks/functionalities:
         - Weekly temperature programm + Output relay control.
 
 
-Pending:
+- Pending:
     - I/O structure reorganization.
     - complete modular task structure.
     - GSM communications.
