@@ -155,14 +155,14 @@ typedef enum {
     // 2.1.- heater_ctrl task loop: Init "heater control loop parameters" and create task
     
     measure_t temperature_setpoint;
-
     heater_ctrl_loop_params_t heater_ctrl_loop_params;
+    heater_ctrl_loop_params_t* pxheater_ctrl_loop_params = NULL;
+
     heater_ctrl_loop_params.event_loop_handle = event_loop_h;
     heater_ctrl_loop_params.ulLoopPeriod = 1000;
     heater_ctrl_loop_params.pxTaskHandle = NULL;
     heater_ctrl_loop_params.pxtemperature = &temperature_setpoint;
 
-    heater_ctrl_loop_params_t* pxheater_ctrl_loop_params = NULL;
     pxheater_ctrl_loop_params = &heater_ctrl_loop_params;
 
     //static const char *pxTask01parms = "Task 1 is running\r\n"; 
@@ -189,8 +189,9 @@ typedef enum {
     // 2.2.- bmp280_ctrl task loop: Init "bmp280 control loop parameters" and create task
 
     BMP280_Measures_t BMP280_Measures;      // Values are updated in background by bmp280_control_loop
-
     BMP280_control_loop_params_t BMP280_ctrl_loop_params;
+    BMP280_control_loop_params_t* pxBMP280_ctrl_loop_params = NULL;
+    
     BMP280_ctrl_loop_params.event_loop_handle = event_loop_h;
     BMP280_ctrl_loop_params.ulLoopPeriod = 1000;
     BMP280_ctrl_loop_params.pxTaskHandle = NULL;
@@ -198,7 +199,6 @@ typedef enum {
     BMP280_ctrl_loop_params.scl_gpio = SCL_GPIO;
     BMP280_ctrl_loop_params.pxBMP280_Measures = &BMP280_Measures;
 
-    BMP280_control_loop_params_t* pxBMP280_ctrl_loop_params = NULL;
     pxBMP280_ctrl_loop_params = &BMP280_ctrl_loop_params;
 
     if ( xTaskCreatePinnedToCore(&bmp280_ctrl_loop, "bmp280_ctrl_loop", 1024 * 2, 
