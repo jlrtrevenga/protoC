@@ -23,7 +23,7 @@
 
 #define ACTIVE_PATTERN  2
 #define LOOP_PERIOD     1000
-#define DEBUG_MSG_LEVEL 3                           // 1:every minute / 2:every hour // 3: on event // 4: On error // >4: Never 
+#define DEBUG_MSG_LEVEL 1                           // 1:every minute / 2:every hour // 3: on event // 4: On error // >4: Never 
 
 static const char* TAG = "HEATER_CTRL";             // Task identifier
 ESP_EVENT_DEFINE_BASE(HEATER_EVENTS);               // Event source task related definitions
@@ -31,7 +31,6 @@ ESP_EVENT_DEFINE_BASE(HEATER_EVENTS);               // Event source task related
 // Heater Control Loop Parameters, received via pvParameter when the loop task is created.
 static heaterConfig_t heaterConfig;
 static TaskHandle_t *pxHeaterTaskHandle;           
-
 
 // internal functions
 void heater_loop(void *pvParameter);
@@ -66,7 +65,7 @@ int heater_loop_start(heaterConfig_t *config){
     int error = 0;
     tp_init_structures();
     error = tp_activate_weekly_pattern(heaterConfig.active_pattern);
-    return(error);                                                      // TODO: send return value depending or correct execution
+    //return(error);                                                      // TODO: send return value depending or correct execution
     
     if ( xTaskCreatePinnedToCore(&heater_loop, heaterConfig.task_name, heaterConfig.task_stack_size, 
                                 (void*) &heaterConfig, heaterConfig.task_priority,
@@ -260,8 +259,6 @@ void heater_events_test_loop(void *pvParameter)
 		vTaskDelay(DELAY_5s);
 		}
 }
-
-
 
 
 /*
