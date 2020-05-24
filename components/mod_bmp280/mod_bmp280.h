@@ -64,6 +64,10 @@ typedef struct {
 
 // BMP280_ctrl_loop parameters structure: Used to pass parameters to initialize loop
 typedef struct {
+    const char            * task_name;              // name of the event loop task; if NULL,
+    UBaseType_t             task_priority;          // priority of the event loop task, ignored if task name is NULL 
+    uint32_t                task_stack_size;        // stack size of the event loop task, ignored if task name is NULL
+    BaseType_t              task_core_id;           // core to which the event loop task is pinned to,    
 	uint32_t 	            ulLoopPeriod; 		    /* loop period in ms. */
 	esp_event_loop_handle_t event_loop_handle; 		/* event loop handler where events will be registered by BMP280_ctrl_loop */
     TaskHandle_t *          pxTaskHandle;     /* BMP280 task handle */
@@ -76,20 +80,13 @@ typedef struct {
 
 
 /********************************************************************************************************************** 
-* bmp280_loop_init
+* bmp280_loop_start
 ***********************************************************************************************************************
  * @brief initializes bmp280_loop variables, bms280 measure variables, inits bmp280 device and registers heater events. 
  * @param[in] BMP280_loop_params_t configuration values. 
 **********************************************************************************************************************/
-int bmp280_loop_init(BMP280_loop_params_t *config);
+int bmp280_loop_start(BMP280_loop_params_t *config);
 
-/****************************************************************************** 
-* bmp280_loop_start
-*******************************************************************************
- * @brief starts bmp280 read loop: Creates task that updates BMP280 measures values.
- * @return: 0:OK / 1: Task creation failed / 2: heater not initialized
- *******************************************************************************/
-int bmp280_loop_start(void);
 
 /****************************************************************************** 
 * bmp280_test_events

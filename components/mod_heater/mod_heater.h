@@ -44,29 +44,27 @@ enum {
 } heater_events;
 
 typedef struct {
-	uint32_t 	            ulLoopPeriod; 		    /* loop period in ms. */
-	esp_event_loop_handle_t event_loop_handle; 		/* event loop handler where events will be registered by heater_ctrl_loop */
-    measure_t *             pxtemperature;
-    int                     active_pattern;         /* weekly active pattern in use */
+    const char            * task_name;              // name of the event loop task; if NULL,
+    UBaseType_t             task_priority;          // priority of the event loop task, ignored if task name is NULL 
+    uint32_t                task_stack_size;        // stack size of the event loop task, ignored if task name is NULL
+    BaseType_t              task_core_id;           // core to which the event loop task is pinned to,    
+	uint32_t 	            ulLoopPeriod; 		    // loop period in ms.
+	esp_event_loop_handle_t event_loop_handle; 		// event loop handler where events will be registered by heater_ctrl_loop
+    measure_t             * pxtemperature;
+    int                     active_pattern;         // weekly active pattern in use
 	} heaterConfig_t;
 
 
 
 /****************************************************************************** 
-* heater_init
+* heater_loop_start
 *******************************************************************************
- * @brief initializes heater: loads initial program and registers heater events., creates task that returns setpoint temperature according to program. 
+ * @brief Loads global variables, registers heater events, inits task programmer structures and 
+ *        creates task that returns setpoint temperature according to program. 
  * @param[in] heaterConfig_t configuration values. 
 *******************************************************************************/
-int heater_loop_init(heaterConfig_t *config);
+int heater_loop_start(heaterConfig_t *config);
 
-/****************************************************************************** 
-* heater_start
-*******************************************************************************
- * @brief initializes heater: Creates task that returns setpoint temperature according to program. 
- * @return: 0:OK / 1: Task creation failed / 2: heater not initialized
- *******************************************************************************/
-int heater_loop_start(void);
 
 /****************************************************************************** 
 * heater_test_events

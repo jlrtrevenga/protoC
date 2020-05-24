@@ -19,9 +19,8 @@ static const char *TAG = "BMP280_LOOP";             // Task identifier
 ESP_EVENT_DEFINE_BASE(BMP280_EVENTS);                // Event source task related definitions
 
 // Control Loop Parameters, received via pvParameter when the loop task is created.
-static BMP280_loop_params_t  bmp280Config, *pxbmp280Config;
+static BMP280_loop_params_t  bmp280Config;
 static TaskHandle_t *pxBMP280TaskHandle;           
-static bool BMP280_loop_initialized = false;
 bmp280_t bmp280_dev;                            // BMP280 device descriptor
 static bool bme280p;                            // 1: BMP-No pressure sensor / 0: BME-Pressure sensor
 
@@ -33,21 +32,24 @@ void bmp280_event_handler(void* handler_args, esp_event_base_t base, int32_t id,
 
 
 /********************************************************************************************************************** 
-* bmp280_loop_init
+* bmp280_loop_start
 ***********************************************************************************************************************
  * @brief initializes bmp280_loop variables, bms280 measure variables, inits bmp280 device and registers heater events. 
  * @param[in] BMP280_loop_params_t configuration values. 
 **********************************************************************************************************************/
-int bmp280_loop_init(BMP280_loop_params_t *config){
+int bmp280_loop_start(BMP280_loop_params_t *config){
 
     // Init task global variables
+    bmp280Config.task_name = config->task_name;
+    bmp280Config.task_priority = config->task_priority;
+    bmp280Config.task_stack_size = config->task_stack_size;
+    bmp280Config.task_core_id = config->task_core_id;
     bmp280Config.event_loop_handle = config->event_loop_handle;
     bmp280Config.ulLoopPeriod      = config->ulLoopPeriod;
     bmp280Config.sda_gpio          = config->sda_gpio;
     bmp280Config.scl_gpio          = config->scl_gpio;
     bmp280Config.I2C_port          = config->I2C_port;
     bmp280Config.pxBMP280_Measures = config->pxBMP280_Measures;
-    pxbmp280Config = &bmp280Config; 
 
     //Inicializo las medidas de los sensores del BMS280
     bmp280Config.pxBMP280_Measures->temperature.value = 0;
@@ -87,35 +89,17 @@ int bmp280_loop_init(BMP280_loop_params_t *config){
             else { bmp280Config.pxBMP280_Measures->humidity.quality = NOT_CONFIGURED; }
     ESP_LOGI(TAG, "BMP280: found %s\n", bme280p ? "BME280" : "BMP280");
 
-    BMP280_loop_initialized = true;
-    return(0);                                                                  // TODO: send return value depending or correct execution
-}
-
-
-
-/****************************************************************************** 
-* bmp280_loop_start
-*******************************************************************************
- * @brief starts bmp280 read loop: Creates task that updates BMP280 measures values.
- * @return: 0:OK / 1: Task creation failed / 2: heater not initialized
- *******************************************************************************/
-int bmp280_loop_start(void){
-    if (BMP280_loop_initialized){
-        if ( xTaskCreatePinnedToCore(&bmp280_loop, "bmp280_loop", 1024 * 2, 
-                                    (void*) pxbmp280Config, 5,
-                                    pxBMP280TaskHandle, 1) == pdPASS ) {         //APP_CPU_NUM, tskNO_AFFINITY 
-            ESP_LOGI(TAG, "BMP280_ctrl_loop task created");
-            return(0);
-            } 
-        else { 
-            ESP_LOGE(TAG, "BMP280_ctrl_loop task creation failed");
-            return(1);
-        }
+    if ( xTaskCreatePinnedToCore(&bmp280_loop, bmp280Config.task_name, bmp280Config.task_stack_size, 
+                                (void*) &bmp280Config, bmp280Config.task_priority,
+                                pxBMP280TaskHandle, bmp280Config.task_core_id) == pdPASS ) {         
+        ESP_LOGI(TAG, "BMP280_ctrl_loop task created");
+        return(0);
+        } 
+    else { 
+        ESP_LOGE(TAG, "BMP280_ctrl_loop task creation failed");
+        return(1);
     }
-    else {
-        ESP_LOGE(TAG, "BMP280_ctrl_loop not initialized");        
-        return(2);
-    }
+                                                            
 }
 
 
@@ -233,7 +217,6 @@ void bmp280_event_handler(void* handler_args, esp_event_base_t base, int32_t id,
 
     case BMP280_CL_CHANGE_FREQ:
         //vTaskDelay(2000 / portTICK_PERIOD_MS);
-        bmp280Config.ulLoopPeriod = pxbmp280Config->ulLoopPeriod;
         ESP_LOGI(TAG, "Event processed: BMP280_CL_CHANGE_FREQ");   
         break;
 

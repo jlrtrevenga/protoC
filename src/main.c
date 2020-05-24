@@ -61,7 +61,9 @@ static const char* TAG = "protoC";
 esp_event_loop_handle_t event_loop_h;
 
 
+// internal functions
 int deadband_check(measure_t measure, measure_t setpoint, float deadband);
+
 
 //***************************************************************************** 
 //main task
@@ -136,8 +138,6 @@ typedef enum {
         .task_stack_size = 2048,
         .task_core_id = tskNO_AFFINITY
     };
-
-    // Create the event loops
     ESP_ERROR_CHECK(esp_event_loop_create(&event_loop_args, &event_loop_h));
     ESP_LOGI(TAG, "event loop created");
 
@@ -155,33 +155,33 @@ typedef enum {
     // 2.- SERVICES LOOPS
 
     // 2.1.- heater_ctrl task loop: Init "heater control loop parameters" and create task
-    
-    measure_t temperature_setpoint;             // TODO: Sacarlo a IO_general
-    heaterConfig_t heater_config, *pxheater_config = NULL;
-    heater_config.event_loop_handle = event_loop_h;
-    heater_config.ulLoopPeriod = LOOP_PERIOD;
-    heater_config.active_pattern = ACTIVE_PATTERN;
-    heater_config.pxtemperature = &temperature_setpoint;
-    pxheater_config = &heater_config;
-
-    err = heater_loop_init(pxheater_config);
-    err = heater_loop_start();
-
+    measure_t temperature_setpoint;                     // TODO: Sacarlo a IO_general
+    heaterConfig_t heater_config = {
+        .task_name = "heater_loop",                 // task will be created (implicit)
+        .task_priority = uxTaskPriorityGet(NULL),
+        .task_stack_size = 2048,
+        .task_core_id = tskNO_AFFINITY,
+        .event_loop_handle = event_loop_h,
+        .ulLoopPeriod = LOOP_PERIOD,
+        .active_pattern = ACTIVE_PATTERN,
+        .pxtemperature = &temperature_setpoint       
+    };
+    ESP_ERROR_CHECK(heater_loop_start(&heater_config));
 
     // 2.2.- bmp280_ctrl task loop: Init "bmp280 control loop parameters" and create task
-
     BMP280_Measures_t BMP280_Measures;      // Values are updated in background by bmp280_control_loop
-    BMP280_loop_params_t BMP280_loop_config, *pxBMP280_loop_config = NULL;
-    BMP280_loop_config.event_loop_handle = event_loop_h;
-    BMP280_loop_config.ulLoopPeriod = LOOP_PERIOD;
-    BMP280_loop_config.sda_gpio = SDA_GPIO;
-    BMP280_loop_config.scl_gpio = SCL_GPIO;
-    BMP280_loop_config.pxBMP280_Measures = &BMP280_Measures;
-    //BMP280_ctrl_loop_params.pxTaskHandle = NULL;
-    pxBMP280_loop_config = &BMP280_loop_config;
-
-    err = bmp280_loop_init(pxBMP280_loop_config);
-    err = bmp280_loop_start();
+    BMP280_loop_params_t BMP280_loop_config = {
+        .task_name = "bmp280_loop",                
+        .task_priority = uxTaskPriorityGet(NULL),
+        .task_stack_size = 2048,
+        .task_core_id = tskNO_AFFINITY,        
+        .event_loop_handle = event_loop_h,
+        .ulLoopPeriod = LOOP_PERIOD,
+        .sda_gpio = SDA_GPIO,
+        .scl_gpio = SCL_GPIO,
+        .pxBMP280_Measures = &BMP280_Measures      
+    };
+    ESP_ERROR_CHECK(bmp280_loop_start(&BMP280_loop_config));
 
 
     // ENDLESS LOOP, REMOVE AND SUPRESS BY VALID CODE
