@@ -14,9 +14,8 @@
 #include <esp_log.h>
 #include <esp_event_base.h>
 #include <esp_event.h>
-#include "heater_ctrl.h"
 #include "esp_idf_lib_helpers.h"
-#include "bmp280_ctrl_loop.h"
+
 #include "sensor.h"
 #include "bmp280.h"
 #include "wifi01.h"
@@ -24,6 +23,8 @@
 //#include "sensor.h"
 //#include "driver/gpio.h"
 
+#include "mod_bmp280.h"
+#include "mod_heater.h"
 #include "mod_mqtt.h"
 #include "mqtt_client.h"
 #include "mod_gpio.h"
@@ -82,14 +83,14 @@ typedef enum {
 } esp_log_level_t;
 */
 
-    esp_log_level_set("BMP280_CTRL_LOOP",   ESP_LOG_ERROR);
+    esp_log_level_set("BMP280_LOOP",        ESP_LOG_ERROR);
     esp_log_level_set("HEATER_CTRL",        ESP_LOG_ERROR);        // tiene compilacion condicional para errores
     esp_log_level_set("wifi",               ESP_LOG_ERROR);
     esp_log_level_set("event",              ESP_LOG_ERROR);
     esp_log_level_set("WIFI01",             ESP_LOG_ERROR);
     esp_log_level_set("TASK_PROGRAMMER01",  ESP_LOG_ERROR);
     esp_log_level_set("WIFI_EXAMPLE",       ESP_LOG_ERROR);           // REMOVE? CHECK
-    esp_log_level_set("MOD_MQTT",             ESP_LOG_INFO);
+    esp_log_level_set("MOD_MQTT",           ESP_LOG_INFO);
     esp_log_level_set("protoC",             ESP_LOG_INFO);
 
     // inherited from mqtt examples
@@ -156,49 +157,31 @@ typedef enum {
     // 2.1.- heater_ctrl task loop: Init "heater control loop parameters" and create task
     
     measure_t temperature_setpoint;             // TODO: Sacarlo a IO_general
-    heaterConfig_t config, *pxconfig;
-    config.ulLoopPeriod = LOOP_PERIOD;
-    config.active_pattern = ACTIVE_PATTERN;
-    config.event_loop_handle = event_loop_h;
-    config.pxtemperature = &temperature_setpoint;
-    pxconfig = &config;
+    heaterConfig_t heater_config, *pxheater_config = NULL;
+    heater_config.event_loop_handle = event_loop_h;
+    heater_config.ulLoopPeriod = LOOP_PERIOD;
+    heater_config.active_pattern = ACTIVE_PATTERN;
+    heater_config.pxtemperature = &temperature_setpoint;
+    pxheater_config = &heater_config;
 
-    err = heater_init(pxconfig);
-    err = heater_start();
+    err = heater_loop_init(pxheater_config);
+    err = heater_loop_start();
 
 
     // 2.2.- bmp280_ctrl task loop: Init "bmp280 control loop parameters" and create task
 
     BMP280_Measures_t BMP280_Measures;      // Values are updated in background by bmp280_control_loop
-    BMP280_control_loop_params_t BMP280_ctrl_loop_params;
-    BMP280_control_loop_params_t* pxBMP280_ctrl_loop_params = NULL;
-    
-    BMP280_ctrl_loop_params.event_loop_handle = event_loop_h;
-    BMP280_ctrl_loop_params.ulLoopPeriod = 1000;
-    BMP280_ctrl_loop_params.pxTaskHandle = NULL;
-    BMP280_ctrl_loop_params.sda_gpio = SDA_GPIO;
-    BMP280_ctrl_loop_params.scl_gpio = SCL_GPIO;
-    BMP280_ctrl_loop_params.pxBMP280_Measures = &BMP280_Measures;
+    BMP280_loop_params_t BMP280_loop_config, *pxBMP280_loop_config = NULL;
+    BMP280_loop_config.event_loop_handle = event_loop_h;
+    BMP280_loop_config.ulLoopPeriod = LOOP_PERIOD;
+    BMP280_loop_config.sda_gpio = SDA_GPIO;
+    BMP280_loop_config.scl_gpio = SCL_GPIO;
+    BMP280_loop_config.pxBMP280_Measures = &BMP280_Measures;
+    //BMP280_ctrl_loop_params.pxTaskHandle = NULL;
+    pxBMP280_loop_config = &BMP280_loop_config;
 
-    pxBMP280_ctrl_loop_params = &BMP280_ctrl_loop_params;
-
-    if ( xTaskCreatePinnedToCore(&bmp280_ctrl_loop, "bmp280_ctrl_loop", 1024 * 2, 
-                                 (void*) pxBMP280_ctrl_loop_params, 5,
-                                 BMP280_ctrl_loop_params.pxTaskHandle, APP_CPU_NUM) != pdPASS ) {    
-        ESP_LOGE(TAG, "bmp280_ctrl task creation failed\r\n");
-        } 
-    else { ESP_LOGI(TAG, "bmp280_ctrl task created\r\n"); }
-
-#if DEBUG_EVENTS == 1
-    // 2.2.1.- bmp280_test task, only for testing event reception and processing
-    // TODO: Remove when tested.
-    if ( xTaskCreatePinnedToCore(&bmp280_test_loop, "bmp280_test_loop", 1024 * 2, 
-                                 NULL, 5, NULL, APP_CPU_NUM) != pdPASS ) {
-        ESP_LOGE(TAG, "bmp280_test creation failed\r\n");
-    } else {
-    	ESP_LOGI(TAG, "bmp280_test created\r\n");
-    }
-#endif
+    err = bmp280_loop_init(pxBMP280_loop_config);
+    err = bmp280_loop_start();
 
 
     // ENDLESS LOOP, REMOVE AND SUPRESS BY VALID CODE

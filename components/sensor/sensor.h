@@ -27,7 +27,8 @@ typedef enum {
     NOT_INIT = 0,  
     GOOD_QUALITY = 1,       
     TOL_QUALITY = 2,        // read error, previous value is still usable (TOLERABLE)
-    BAD_QUALITY = 3         // bad readout, invalid data
+    BAD_QUALITY = 3,        // bad readout, invalid data
+    NOT_CONFIGURED = 4      // Check if signal is configured before using it
 } quality_te;
 
 /**

@@ -13,6 +13,6 @@ set(comp_includes
 idf_component_register(
 	SRCS ${app_sources}
 	INCLUDE_DIRS ${comp_includes}	
-    	REQUIRES bmp280 sensor heater_ctrl mod_mqtt
+    	REQUIRES bmp280 sensor mod_heater mod_mqtt
 	)
 

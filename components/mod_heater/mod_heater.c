@@ -13,26 +13,32 @@
 #include "esp_event_base.h"
 #include <esp_event.h>
 #include "task_programmer01.h"
-#include "heater_ctrl.h"
+#include "mod_heater.h"
 #include "sensor.h"
 
 #define DELAY_1s             (pdMS_TO_TICKS( 1000))
 #define DELAY_2s             (pdMS_TO_TICKS( 2000))
 #define DELAY_5s             (pdMS_TO_TICKS( 5000))
 #define EVENT_MAX_DELAY      (pdMS_TO_TICKS( 5000))
+
 #define ACTIVE_PATTERN  2
 #define LOOP_PERIOD     1000
-
 #define DEBUG_MSG_LEVEL 3                           // 1:every minute / 2:every hour // 3: on event // 4: On error // >4: Never 
 
 static const char* TAG = "HEATER_CTRL";             // Task identifier
-
 ESP_EVENT_DEFINE_BASE(HEATER_EVENTS);               // Event source task related definitions
 
 // Heater Control Loop Parameters, received via pvParameter when the loop task is created.
 static heaterConfig_t heaterConfig, *pxheaterConfig;
 static TaskHandle_t *pxHeaterTaskHandle;           
 static bool heater_initialized = false;
+
+// internal functions
+void heater_loop(void *pvParameter);
+void heater_events_test_loop(void *pvParameter);
+void heater_event_handler(void* handler_args, esp_event_base_t base, int32_t id, void* event_data);
+
+
 
 /****************************************************************************** 
 * heater_init
@@ -41,11 +47,13 @@ static bool heater_initialized = false;
  * @param[in] heaterConfig_t configuration values. 
  * @param[in] sntp_sync = true -> connect to snmt servers and get time
 *******************************************************************************/
-int heater_init(heaterConfig_t *config){
+int heater_loop_init(heaterConfig_t *config){
 
     // Init task global variables
-    (config->ulLoopPeriod == NULL) ? (heaterConfig.ulLoopPeriod = LOOP_PERIOD) : (heaterConfig.ulLoopPeriod = config->ulLoopPeriod);
-    (config->active_pattern == NULL) ? (heaterConfig.active_pattern = ACTIVE_PATTERN) : (heaterConfig.active_pattern = config->active_pattern);
+    heaterConfig.ulLoopPeriod = config->ulLoopPeriod;
+    heaterConfig.active_pattern = config->active_pattern;
+    //(config->ulLoopPeriod == NULL) ? (heaterConfig.ulLoopPeriod = LOOP_PERIOD) : (heaterConfig.ulLoopPeriod = config->ulLoopPeriod);
+    //(config->active_pattern == NULL) ? (heaterConfig.active_pattern = ACTIVE_PATTERN) : (heaterConfig.active_pattern = config->active_pattern);
     heaterConfig.pxtemperature = config->pxtemperature;
     heaterConfig.event_loop_handle = config->event_loop_handle;
     pxheaterConfig = &heaterConfig; 
@@ -58,7 +66,7 @@ int heater_init(heaterConfig_t *config){
     tp_init_structures();
     error = tp_activate_weekly_pattern(heaterConfig.active_pattern);
     heater_initialized = true;
-    return(0);                                                                  // TODO: send return value depending or correct execution
+    return(error);                                                                  // TODO: send return value depending or correct execution
 }
 
 
@@ -68,9 +76,9 @@ int heater_init(heaterConfig_t *config){
  * @brief initializes heater: Creates task that returns setpoint temperature according to program. 
  * @return: 0:OK / 1: Task creation failed / 2: heater not initialized
  *******************************************************************************/
-int heater_start(void){
+int heater_loop_start(void){
     if (heater_initialized){
-        if ( xTaskCreatePinnedToCore(&heater_ctrl_loop, "heater_ctrl_loop", 1024 * 2, 
+        if ( xTaskCreatePinnedToCore(&heater_loop, "heater_loop", 1024 * 2, 
                                     (void*) pxheaterConfig, 5,
                                     pxHeaterTaskHandle, 1) == pdPASS ) {         //APP_CPU_NUM, tskNO_AFFINITY 
             ESP_LOGI(TAG, "heater_ctrl task created");
@@ -95,7 +103,7 @@ int heater_start(void){
  * @return: 0:OK / 1: Task creation failed 
  *******************************************************************************/
 int heater_test_events(void){
-    if ( xTaskCreatePinnedToCore(&heater_test_loop, "heater_test_loop", 1024 * 2, 
+    if ( xTaskCreatePinnedToCore(&heater_events_test_loop, "heater_events_test_loop", 1024 * 2, 
                                 NULL, 5, NULL, tskNO_AFFINITY) == pdPASS ) {
         ESP_LOGI(TAG, "heater_test created\r\n");
         return(0); 
@@ -154,12 +162,12 @@ void heater_event_handler(void* handler_args, esp_event_base_t base, int32_t id,
 
 
 /****************************************************************************** 
-* heater_ctrl_loop
+* heater_loop
 *******************************************************************************
  * @brief heaterConfig_t* pv -> Creates task loop that evaluates weekly temperature 
  *                              program and returns actual temperature_setpoint.
  *******************************************************************************/
-void heater_ctrl_loop(void *pvParameter) {
+void heater_loop(void *pvParameter) {
     heaterConfig_t* pxconfig_par = (heaterConfig_t*) pvParameter;
     heaterConfig_t config;
     config.ulLoopPeriod      = pxconfig_par->ulLoopPeriod;
@@ -244,7 +252,7 @@ void heater_ctrl_loop(void *pvParameter) {
 //********************************************************************************************* 
 //heater event test: Throws one event of each type to test it is received in an infinite loop
 //*********************************************************************************************
-void heater_test_loop(void *pvParameter)
+void heater_events_test_loop(void *pvParameter)
 {
 //esp_err_t err;
 

@@ -7,8 +7,8 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
-#ifndef HEATER_CTRL_H_
-#define HEATER_CTRL_H_
+#ifndef MOD_HEATER_H_
+#define MOD_HEATER_H_
 
 #include "esp_event.h"
 #include "esp_event_loop.h"
@@ -43,22 +43,6 @@ enum {
     HEATER_EVENT_HEATER_UPDATE              
 } heater_events;
 
-// heater_ctrl_loop parameters structure: Used to pass parameters to initialize loop
-/*
-typedef struct {
-	uint32_t 	            ulLoopPeriod; 		    // loop period in ms. 
-	esp_event_loop_handle_t event_loop_handle; 		// event loop handler where events will be registered by heater_ctrl_loop 
-    TaskHandle_t *          pxTaskHandle;           // heater task handle 
-	} heater_ctrl_loop_params_t2;
-*/
-
-typedef struct {
-	uint32_t 	            ulLoopPeriod; 		    /* loop period in ms. */
-	esp_event_loop_handle_t event_loop_handle; 		/* event loop handler where events will be registered by heater_ctrl_loop */
-    TaskHandle_t *          pxTaskHandle;           /* heater task handle */
-    measure_t *             pxtemperature;
-	} heater_ctrl_loop_params_t;
-
 typedef struct {
 	uint32_t 	            ulLoopPeriod; 		    /* loop period in ms. */
 	esp_event_loop_handle_t event_loop_handle; 		/* event loop handler where events will be registered by heater_ctrl_loop */
@@ -67,12 +51,29 @@ typedef struct {
 	} heaterConfig_t;
 
 
-void heater_ctrl_loop(void *pvParameter);
-void heater_test_loop(void *pvParameter);
-void heater_event_handler(void* handler_args, esp_event_base_t base, int32_t id, void* event_data);
 
-int heater_init(heaterConfig_t *config);
-int heater_start(void);
+/****************************************************************************** 
+* heater_init
+*******************************************************************************
+ * @brief initializes heater: loads initial program and registers heater events., creates task that returns setpoint temperature according to program. 
+ * @param[in] heaterConfig_t configuration values. 
+*******************************************************************************/
+int heater_loop_init(heaterConfig_t *config);
+
+/****************************************************************************** 
+* heater_start
+*******************************************************************************
+ * @brief initializes heater: Creates task that returns setpoint temperature according to program. 
+ * @return: 0:OK / 1: Task creation failed / 2: heater not initialized
+ *******************************************************************************/
+int heater_loop_start(void);
+
+/****************************************************************************** 
+* heater_test_events
+*******************************************************************************
+ * @brief tests events: Creates task that periodically sends valid events
+ * @return: 0:OK / 1: Task creation failed 
+ *******************************************************************************/
 int heater_test_events(void);
 
 
@@ -80,7 +81,7 @@ int heater_test_events(void);
 }
 #endif
 
-#endif // #ifndef HEATER_CTRL_H_
+#endif // #ifndef MOD_HEATER_H_
 
 
 
