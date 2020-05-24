@@ -1,5 +1,5 @@
 
-set(app_sources "bmp280_ctrl_loop.c")
+set(app_sources "mod_bmp280.c")
 
 set(comp_includes "." )
 

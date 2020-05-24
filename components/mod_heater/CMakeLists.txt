@@ -1,5 +1,5 @@
 
-set(app_sources "heater_ctrl.c")
+set(app_sources "mod_heater.c")
 
 set(comp_includes 
     "." 

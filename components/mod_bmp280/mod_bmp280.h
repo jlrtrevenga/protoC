@@ -7,8 +7,8 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
-#ifndef BMP280_CTRL_LOOP_H_
-#define BMP280_CTRL_LOOP_H_
+#ifndef MOD_BMP280_H_
+#define MOD_BMP280_H_
 
 #include "esp_event.h"
 #include "esp_event_loop.h"
@@ -37,15 +37,13 @@ extern "C" {
 #define EVENT_MAX_DELAY      (pdMS_TO_TICKS( 5000))
 
 ESP_EVENT_DECLARE_BASE(BMP280_EVENTS);         // declaration of the task events family: BMP280_CONTROL_LOOP (BMP280_CL)
-
-// BMP280 status        //TODO
 /*
 enum{
     NOT_OPERATIVE,
     OPERATIVE_WORKING,
     OPERATIVE_WAITING
 } BMP280_status;  
-*/      
+*/     
 
 // Actions are based on objects and objects data. Events only inform to check data and act based on that.
 // Events register may be made based only on BASE, without event_id. No object data is required as it will be read directly form objects.
@@ -73,19 +71,40 @@ typedef struct {
     int                     scl_gpio;
     int                     I2C_port;
     BMP280_Measures_t *     pxBMP280_Measures;
-	} BMP280_control_loop_params_t;
+	} BMP280_loop_params_t;
 
 
-void bmp280_ctrl_loop(void *pvParameter);
-void bmp280_test_loop(void *pvParameter);
-void bmp280_event_handler(void* handler_args, esp_event_base_t base, int32_t id, void* event_data);
+
+/********************************************************************************************************************** 
+* bmp280_loop_init
+***********************************************************************************************************************
+ * @brief initializes bmp280_loop variables, bms280 measure variables, inits bmp280 device and registers heater events. 
+ * @param[in] BMP280_loop_params_t configuration values. 
+**********************************************************************************************************************/
+int bmp280_loop_init(BMP280_loop_params_t *config);
+
+/****************************************************************************** 
+* bmp280_loop_start
+*******************************************************************************
+ * @brief starts bmp280 read loop: Creates task that updates BMP280 measures values.
+ * @return: 0:OK / 1: Task creation failed / 2: heater not initialized
+ *******************************************************************************/
+int bmp280_loop_start(void);
+
+/****************************************************************************** 
+* bmp280_test_events
+*******************************************************************************
+ * @brief loop to tests bmp280 events
+ * @return: 0:OK / 1: Task creation failed / 2: heater not initialized
+ *******************************************************************************/
+int bmp280_test_events(void);
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // #ifndef BMP280_CTRL_LOOP_H_
+#endif // #ifndef MOD_BMP280_H_
 
 
 
