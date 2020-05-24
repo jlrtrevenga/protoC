@@ -120,13 +120,10 @@ typedef enum {
     tzset();
 
     // TODO: esto es prueba rapida, codificar bien mas adelante, sacar como var globales junto con todas las DOs
-    static DO_t heater_command;
-    heater_command.value_actual = 0;
-    heater_command.value_prev = 0;
-    int err = 0;
-
-    // 
-    ESP_LOGI(TAG, "event loop setup");
+    static DO_t heater_command = {
+        .value_actual = 0,
+        .value_prev = 0
+        };
 
     // 1.- COMMON SERVICES
 
