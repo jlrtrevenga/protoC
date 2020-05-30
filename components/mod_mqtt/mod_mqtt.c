@@ -89,7 +89,11 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
             //printf("DATA=%.*s\r\n", event->data_len, event->data);
             break;
 
+/*
         case MQTT_EVENT_BEFORE_CONNECT:
+            break;
+*/
+
         case MQTT_EVENT_ERROR:
             ESP_LOGI(TAG, "MQTT_EVENT_BEFORE_CONNECT");
             if (event->error_handle->error_type == MQTT_ERROR_TYPE_ESP_TLS) {
