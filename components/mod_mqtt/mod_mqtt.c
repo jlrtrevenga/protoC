@@ -16,6 +16,7 @@
 #include "esp_log.h"
 //#include "nvs_flash.h"
 #include "esp_event.h"
+#include "esp_event_legacy.h"
 #include "tcpip_adapter.h"
 
 #include "freertos/FreeRTOS.h"
@@ -45,7 +46,8 @@ extern const uint8_t mqtt_eclipse_org_pem_start[]   asm("_binary_mqtt_eclipse_or
 extern const uint8_t mqtt_eclipse_org_pem_end[]   asm("_binary_mqtt_eclipse_org_pem_end");
 */
 
-    
+//Internal functions
+static esp_err_t wifi_event_handler(void *ctx, system_event_t *event);
 
 
 /****************************************************************************** 
@@ -140,6 +142,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     client = esp_mqtt_client_init(&mqtt_cfg);
     //esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, client);
+    // Register wifi events to disconnect and reconnect 
+    //esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_event_handler, NULL, NULL);  // TODO
+    esp_event_handler_register(ESP_EVENT_ANY_BASE, ESP_EVENT_ANY_ID, wifi_event_handler, NULL);  // TODO
     esp_err_t err = esp_mqtt_client_start(client);
     return (err);
 }
@@ -210,6 +215,43 @@ int mqtt_client_unubscribe(const char *topic, int qos){
 
 
 
+/****************************************************************************** 
+* wifi event handler
+*******************************************************************************
+ * some asyncrhonous wifi actions are handled though events, here: 
+*******************************************************************************/
+static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
+{
+    esp_err_t error;
+    switch(event->event_id) {
+        
+    case SYSTEM_EVENT_STA_START:
+        ESP_LOGI(TAG, "WIFI Event: SYSTEM_EVENT_STA_START -> Received");        
+        break;
+
+    case SYSTEM_EVENT_STA_CONNECTED:
+        ESP_LOGI(TAG, "WIFI Event: SYSTEM_EVENT_STA_CONNECTED -> Received");
+        break;
+
+    case SYSTEM_EVENT_STA_GOT_IP:
+        ESP_LOGI(TAG, "WIFI Event: SYSTEM_EVENT_STA_GOT_IP: " IPSTR, IP2STR(&event->event_info.got_ip.ip_info.ip));
+        break;
+
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+        ESP_LOGI(TAG, "WIFI Event: SYSTEM_EVENT_STA_DISCONNECTED -> Received");
+        break;
+
+    case SYSTEM_EVENT_STA_STOP:
+        ESP_LOGI(TAG, "WIFI Event: SYSTEM_EVENT_STA_STOP -> Received");        
+        break;
+
+    default:
+        ESP_LOGI(TAG, "WIFI Default Event: %d ", event->event_id);
+        break;
+    }
+    return ESP_OK;
+}
+
 
 /*
 
@@ -222,4 +264,7 @@ ESP_LOGI(TAG, "sent unsubscribe successful, msg_id=%d", msg_id);
 msg_id = mqtt_client_publish("/topic/qos0", "data_blue_whale_01", 0, 0, 0);
 
 */ 
+
+
+
 
