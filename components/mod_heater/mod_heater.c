@@ -25,7 +25,7 @@
 #define LOOP_PERIOD     1000
 #define DEBUG_MSG_LEVEL 1                           // 1:every minute / 2:every hour // 3: on event // 4: On error // >4: Never 
 
-static const char* TAG = "HEATER_CTRL";             // Task identifier
+static const char* TAG = "MOD_HEATER";             // Task identifier
 ESP_EVENT_DEFINE_BASE(HEATER_EVENTS);               // Event source task related definitions
 
 // Heater Control Loop Parameters, received via pvParameter when the loop task is created.

@@ -80,20 +80,22 @@ typedef enum {
 } esp_log_level_t;
 */
 
-    esp_log_level_set("BMP280_CTRL_LOOP",   ESP_LOG_ERROR);
-    esp_log_level_set("HEATER_CTRL",        ESP_LOG_ERROR);        // tiene compilacion condicional para errores
-    esp_log_level_set("wifi",               ESP_LOG_ERROR);
-    esp_log_level_set("event",              ESP_LOG_ERROR);
-    esp_log_level_set("WIFI01",             ESP_LOG_INFO);
-    esp_log_level_set("TASK_PROGRAMMER01",  ESP_LOG_ERROR);
-    esp_log_level_set("WIFI_EXAMPLE",       ESP_LOG_ERROR);           // REMOVE? CHECK
-    esp_log_level_set("MOD_MQTT",             ESP_LOG_INFO);
     esp_log_level_set("protoC",             ESP_LOG_INFO);
+    esp_log_level_set("BMP280",             ESP_LOG_ERROR);
+    esp_log_level_set("BMP280_CTRL_LOOP",   ESP_LOG_ERROR);
+    esp_log_level_set("HEATER_CTRL",        ESP_LOG_ERROR);     
+    esp_log_level_set("I2C_DEV",            ESP_LOG_ERROR);
+    esp_log_level_set("MOD_HEATER",         ESP_LOG_ERROR); 
+    esp_log_level_set("MOD_MQTT",           ESP_LOG_INFO);
+    esp_log_level_set("TASK_PROGRAMMER01",  ESP_LOG_ERROR);
+    esp_log_level_set("WIFI01",             ESP_LOG_INFO);
+    esp_log_level_set("wifi",               ESP_LOG_INFO);
+    esp_log_level_set("event",              ESP_LOG_INFO);
+    
 
     // inherited from mqtt examples
     //esp_log_level_set("*", ESP_LOG_INFO);
     esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
-    esp_log_level_set("MQTT_EXAMPLE", ESP_LOG_VERBOSE);
     esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
     esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
     esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);

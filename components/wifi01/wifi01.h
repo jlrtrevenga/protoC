@@ -22,17 +22,16 @@
 #include "freertos/event_groups.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
-#include "esp_event_loop.h"
+//#include "esp_event.h"
+#include "esp_event_loop.h"   //REVISAR
 #include "esp_log.h"
-#include "esp_attr.h"
-#include "esp_sleep.h"
 #include "nvs_flash.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 
 #include "lwip/err.h"
-//#include "lwip/apps/sntp.h"
+#include "lwip/sys.h"
 #include "sntp2.h"
 
 #ifdef __cplusplus

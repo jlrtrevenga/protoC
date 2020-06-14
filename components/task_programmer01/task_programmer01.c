@@ -381,53 +381,6 @@ int tp_get_target_value(time_t actual_time, bool *poverride_active, int *p_overr
 };
 
 
-
-/* VERIFICO ESTA BUSQUEDA
-pd_record.PD_ID = 5;
-pd_record.PD_ID2 = 1;
-pd_record.hour = 0;
-pd_record.minute = 0;
-pd_record.target_var_ID = 1;
-for (int j=1; j<10; j++){
-    ESP_LOGI(TAG, "Buscamos pw_record = {%d, %d, -}", pd_record.PD_ID, pd_record.PD_ID2);
-    error = lfdp(&pd_record);
-    if (error == 0) {
-        ESP_LOGI(TAG, "Encontrado pw_record = {%d, %d, %d, %d, %d}", pd_record.PD_ID, pd_record.PD_ID2, pd_record.hour, pd_record.minute, pd_record.target_var_ID);
-    } else ESP_LOGI(TAG, "REGISTRO NO ENCONTRADO");
-    //apunto al siguiente
-    pd_record.PD_ID2++;
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-    }
-return(0);
-*/
-
-/* VERIFICO ESTA BUSQUEDA
-pw_record.PW_ID = weekly_pattern;
-pw_record.day = 1;
-for (int j=1; j<10; j++){
-    ESP_LOGI(TAG, "Buscamos pw_record = {%d, %d, -}", pw_record.PW_ID, pw_record.day);
-    error = lfwp(&pw_record);
-    ESP_LOGI(TAG, "Encontrado pw_record = {%d, %d, %d}", pw_record.PW_ID, pw_record.day, pw_record.PD_ID);
-    //apunto al siguiente
-    pw_record.day++;
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-    }
-return(0);
-*/
-
-/* VERIFICADO, RECUPERA BIEN LOS REGISTROS
-for (int j=1; j<6; j++){
-    tv_record.target_var_ID = j;
-    //ESP_LOGI(TAG, "Buscamos tv_record.target_var_ID = %d", tv_record.target_var_ID);
-    error = lftv(&tv_record);
-    //ESP_LOGI(TAG, "Encontrado tv_record.target_var_value = %d", tv_record.target_var_value);
-    vTaskDelay(10000 / portTICK_PERIOD_MS);
-    }
-return(0);
-*/
-
-
-
 /****************************************************************************** 
 * lfwp - look for weekly pattern
 *******************************************************************************/

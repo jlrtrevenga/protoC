@@ -34,7 +34,6 @@
 static const char *TAG = "MOD_MQTT";
 
 static esp_mqtt_client_handle_t client;     //MQTT client handle
-
 static bool mqtt_connected = false;    
 
 /*
@@ -47,8 +46,8 @@ extern const uint8_t mqtt_eclipse_org_pem_end[]   asm("_binary_mqtt_eclipse_org_
 */
 
 //Internal functions
-static esp_err_t wifi_event_handler(void *ctx, system_event_t *event);
-
+static void wifi_event_handler(void* arg, esp_event_base_t event_base,
+                                int32_t event_id, void* event_data);
 
 /****************************************************************************** 
 * mqtt_event_handler_cb
@@ -103,7 +102,7 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
                 ESP_LOGW(TAG, "Unknown error type: 0x%x", event->error_handle->error_type);
             }
             break;
-                
+
         default:
             ESP_LOGI(TAG, "Other event id:%d", event->event_id);
             break;
@@ -140,14 +139,31 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
    
     ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
     client = esp_mqtt_client_init(&mqtt_cfg);
-    //esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
-    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, client);
+
     // Register wifi events to disconnect and reconnect 
-    //esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_event_handler, NULL, NULL);  // TODO
-    esp_event_handler_register(ESP_EVENT_ANY_BASE, ESP_EVENT_ANY_ID, wifi_event_handler, NULL);  // TODO
-    esp_err_t err = esp_mqtt_client_start(client);
-    return (err);
+    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, client);
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                               &wifi_event_handler, NULL));
+
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID,
+                                               &wifi_event_handler, NULL));
+
+    return (ESP_OK);
 }
+
+
+/****************************************************************************** 
+* mqtt_client_start in active mqtt client
+*******************************************************************************
+ * @brief start mqtt client (typically force re-start after any incidence). 
+*******************************************************************************/
+int mqtt_client_start(void){
+    int msg_id = esp_mqtt_client_start(client);
+    if (msg_id == ESP_OK) {ESP_LOGI(TAG, "MQTT Client Started");}
+    else { ESP_LOGI(TAG, "MQTT Client Error: %d ", msg_id);}
+    return(msg_id);    
+}
+
 
 /****************************************************************************** 
 * mqtt_client_stop in active mqtt client
@@ -156,8 +172,11 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 *******************************************************************************/
 int mqtt_client_stop(void){
     int msg_id = esp_mqtt_client_stop(client);
+    if (msg_id == ESP_OK) {ESP_LOGI(TAG, "MQTT Client Started");}
+    else { ESP_LOGI(TAG, "MQTT Client Error: %d ", msg_id);}
     return(msg_id);    
 }
+
 
 /****************************************************************************** 
 * mqtt_client_reconnect in active mqtt client
@@ -165,7 +184,7 @@ int mqtt_client_stop(void){
  * @brief reconnects mqtt client. 
 *******************************************************************************/
 int mqtt_client_reconnect(void){
-    int msg_id = esp_mqtt_client_stop(client);
+    int msg_id = esp_mqtt_client_reconnect(client);
     return(msg_id);    
 }
 
@@ -212,44 +231,56 @@ int mqtt_client_unubscribe(const char *topic, int qos){
 }
 
 
-
-
-
 /****************************************************************************** 
 * wifi event handler
 *******************************************************************************
  * some asyncrhonous wifi actions are handled though events, here: 
+ *  Old version, to be replaced by wifi_event_handler
+ *  Check page when IDF4.1 is available
+ * https://github.com/espressif/esp-idf/blob/7d75213/examples/wifi/getting_started/station/main/station_example_main.c
 *******************************************************************************/
-static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
-{
-    esp_err_t error;
-    switch(event->event_id) {
-        
-    case SYSTEM_EVENT_STA_START:
-        ESP_LOGI(TAG, "WIFI Event: SYSTEM_EVENT_STA_START -> Received");        
-        break;
+static void wifi_event_handler(void* arg, esp_event_base_t event_base,
+                                int32_t event_id, void* event_data) {
 
-    case SYSTEM_EVENT_STA_CONNECTED:
-        ESP_LOGI(TAG, "WIFI Event: SYSTEM_EVENT_STA_CONNECTED -> Received");
-        break;
+    if (event_base == WIFI_EVENT){
+        switch (event_id) {
 
-    case SYSTEM_EVENT_STA_GOT_IP:
-        ESP_LOGI(TAG, "WIFI Event: SYSTEM_EVENT_STA_GOT_IP: " IPSTR, IP2STR(&event->event_info.got_ip.ip_info.ip));
-        break;
+            case WIFI_EVENT_STA_START:
+                ESP_LOGI(TAG, "Event: WIFI ----- WIFI_EVENT_STA_START -> Received");        
+                break;
 
-    case SYSTEM_EVENT_STA_DISCONNECTED:
-        ESP_LOGI(TAG, "WIFI Event: SYSTEM_EVENT_STA_DISCONNECTED -> Received");
-        break;
+            case WIFI_EVENT_STA_CONNECTED:
+                ESP_LOGI(TAG, "Event: WIFI ----- WIFI_EVENT_STA_CONNECTED -> Received");
+                break;
 
-    case SYSTEM_EVENT_STA_STOP:
-        ESP_LOGI(TAG, "WIFI Event: SYSTEM_EVENT_STA_STOP -> Received");        
-        break;
+            case WIFI_EVENT_STA_DISCONNECTED:
+                ESP_LOGI(TAG, "Event: WIFI ----- WIFI_EVENT_STA_DISCONNECTED -> Received");
+                break;
 
-    default:
-        ESP_LOGI(TAG, "WIFI Default Event: %d ", event->event_id);
-        break;
-    }
-    return ESP_OK;
+            case WIFI_EVENT_STA_STOP:
+                ESP_LOGI(TAG, "Event: WIFI ----- WIFI_EVENT_STA_STOP -> Received");        
+                break;
+
+            default:
+                ESP_LOGI(TAG, "Default Event: WIFI -----  %d ", event_id);
+                break;
+            }
+        }
+
+    if (event_base == IP_EVENT){
+        switch (event_id) {
+
+            case IP_EVENT_STA_GOT_IP:
+                ESP_LOGI(TAG, "Event: IP ----- IP_EVENT_STA_GOT_IP: ");
+                mqtt_client_start(); 
+                break;
+
+            case IP_EVENT_STA_LOST_IP:
+                ESP_LOGI(TAG, "Event: IP ----- IP_EVENT_STA_LOST_IP: ");                
+                mqtt_client_stop();
+                break;
+            }
+        }
 }
 
 
