@@ -1,0 +1,9 @@
+2020.07.04:
+mqtt: hangs out, check and correct. Client is not initialized now.
+
+mqtt: 
+Add function to see if mqtt client is started and check before any function call. It is not protected.
+If client is not started and publish function is called, it crashes.
+
+mqtt_client: Falla aqui: hay que desactivar esta opcion, pero antes no fallaba. ver motivo.
+MQTT_SUPPORTED_FEATURE_ALPN

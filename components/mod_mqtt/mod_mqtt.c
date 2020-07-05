@@ -34,6 +34,7 @@
 static const char *TAG = "MOD_MQTT";
 
 static esp_mqtt_client_handle_t client;     //MQTT client handle
+esp_mqtt_client_config_t mqtt_cfg;
 static bool mqtt_connected = false;    
 
 /*
@@ -137,21 +138,36 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     };
 */
   
-   const esp_mqtt_client_config_t mqtt_cfg = {
+/*    
+   const esp_mqtt_client_config_t mqtt_cfg = {       
         .uri = CONFIG_BROKER_URI,
     };
-   
+*/
+    // Inicializo mqtt_cfg como global y asigno aqui el valor porque de lo contrario da un core dump
+    mqtt_cfg.uri = CONFIG_BROKER_URI;
+
     ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
-    client = esp_mqtt_client_init(&mqtt_cfg);
+    ESP_LOGI(TAG, "MQTT_client_init 1");
+    ESP_LOGI(TAG, " %s ", mqtt_cfg.uri);
+
+    client = esp_mqtt_client_init(&mqtt_cfg);       // VER SI LO DEJO AQUI O AL LLEGAR EL EVENTO
+    if (client == NULL) { ESP_LOGI(TAG, "MQTT_client_init FAILED");}
+    ESP_LOGI(TAG, "MQTT_client_init 2");
 
     // Register wifi events to disconnect and reconnect 
+    ESP_LOGI(TAG, "Paso 1");
     esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, client);
+    ESP_LOGI(TAG, "Paso 2");
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
                                                &wifi_event_handler, NULL));
-
+        ESP_LOGI(TAG, "Paso 3");
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID,
                                                &wifi_event_handler, NULL));
 
+    ESP_LOGI(TAG, "Paso 4");
+    
+    esp_mqtt_client_start(client);
+    
     return (ESP_OK);
 }
 
