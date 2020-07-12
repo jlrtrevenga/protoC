@@ -85,6 +85,13 @@ int mqtt_client_subscribe(const char *topic, int qos);
 int mqtt_client_unubscribe(const char *topic, int qos);
 
 
+/****************************************************************************** 
+* mqtt_connected
+*******************************************************************************
+ * @brief returns mqtt connection status: ESP_OK / ESP_FAIL 
+*******************************************************************************/
+esp_err_t mqtt_connected();
+
 
 #ifdef __cplusplus
 }

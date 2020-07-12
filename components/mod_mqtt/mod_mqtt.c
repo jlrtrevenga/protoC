@@ -35,7 +35,7 @@ static const char *TAG = "MOD_MQTT";
 
 static esp_mqtt_client_handle_t client;     //MQTT client handle
 esp_mqtt_client_config_t mqtt_cfg;
-static bool mqtt_connected = false;    
+static bool b_mqtt_connected = false;    
 
 /*
 #if CONFIG_BROKER_CERTIFICATE_OVERRIDDEN == 1
@@ -62,12 +62,12 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
     // your_context_t *context = event->context;
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
-            mqtt_connected = true;
+            b_mqtt_connected = true;
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
             break;
 
         case MQTT_EVENT_DISCONNECTED:
-            mqtt_connected = false;
+            b_mqtt_connected = false;
             ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
             break;
 
@@ -91,10 +91,11 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
             //printf("DATA=%.*s\r\n", event->data_len, event->data);
             break;
 
-/*
+
         case MQTT_EVENT_BEFORE_CONNECT:
+            ESP_LOGV(TAG, "MQTT_EVENT_BEFORE_CONNECT received");        
             break;
-*/
+
 
         case MQTT_EVENT_ERROR:
             ESP_LOGI(TAG, "MQTT_EVENT_BEFORE_CONNECT");
@@ -123,7 +124,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 }
 
 
-
 /****************************************************************************** 
 * mqtt_client_start
 *******************************************************************************
@@ -147,28 +147,24 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     mqtt_cfg.uri = CONFIG_BROKER_URI;
 
     ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
-    ESP_LOGI(TAG, "MQTT_client_init 1");
     ESP_LOGI(TAG, " %s ", mqtt_cfg.uri);
 
-    client = esp_mqtt_client_init(&mqtt_cfg);       // VER SI LO DEJO AQUI O AL LLEGAR EL EVENTO
-    if (client == NULL) { ESP_LOGI(TAG, "MQTT_client_init FAILED");}
-    ESP_LOGI(TAG, "MQTT_client_init 2");
+    client = esp_mqtt_client_init(&mqtt_cfg);       
+    if (client == NULL) { 
+        ESP_LOGE(TAG, "MQTT_client_init FAILED");
+        return (ESP_FAIL);
+        }
+    else {
+        // Register wifi events to disconnect and reconnect 
+        esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, client);
+        ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                                &wifi_event_handler, NULL));
+        ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID,
+                                                &wifi_event_handler, NULL));   
 
-    // Register wifi events to disconnect and reconnect 
-    ESP_LOGI(TAG, "Paso 1");
-    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, client);
-    ESP_LOGI(TAG, "Paso 2");
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
-                                               &wifi_event_handler, NULL));
-        ESP_LOGI(TAG, "Paso 3");
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID,
-                                               &wifi_event_handler, NULL));
-
-    ESP_LOGI(TAG, "Paso 4");
-    
-    esp_mqtt_client_start(client);
-    
-    return (ESP_OK);
+        //esp_mqtt_client_start(client);                                          // VER SI LO DEJO AQUI O AL LLEGAR EL EVENTO
+        return (ESP_OK);
+    }
 }
 
 
@@ -248,6 +244,17 @@ int mqtt_client_subscribe(const char *topic, int qos){
 int mqtt_client_unubscribe(const char *topic, int qos){
     int msg_id = esp_mqtt_client_unsubscribe(client, topic);
     return(msg_id);    
+}
+
+
+/****************************************************************************** 
+* mqtt_connected
+*******************************************************************************
+ * @brief returns mqtt connection status: ESP_OK / ESP_FAIL 
+*******************************************************************************/
+esp_err_t mqtt_connected() {
+    if (b_mqtt_connected) return (ESP_OK);
+    else return(ESP_FAIL);
 }
 
 

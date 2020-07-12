@@ -29,7 +29,6 @@
 #include "mqtt_client.h"
 #include "mod_gpio.h"
 
-
 #define DELAY_1s             (pdMS_TO_TICKS( 1000))
 #define DELAY_2s             (pdMS_TO_TICKS( 2000))
 #define DELAY_5s             (pdMS_TO_TICKS( 5000))
@@ -39,7 +38,6 @@
 
 
 #define DEBUG_EVENTS 0              // 0:NO DEBUG , 1:DEBUG
-
 
 //GPIO DEFINITION
 //#define GPIO_INPUT_IO_0     12
@@ -52,14 +50,13 @@
 
 // heater weekly initial active pattern
 #define ACTIVE_PATTERN  2
-#define LOOP_PERIOD     1000
-
+#define LOOP_PERIOD     10000
+static const char* boardID = "home6534";
 
 static const char* TAG = "protoC";
 
 // Events loop
 esp_event_loop_handle_t event_loop_h;
-
 
 // internal functions
 int deadband_check(measure_t measure, measure_t setpoint, float deadband);
@@ -73,6 +70,8 @@ void app_main()
     ESP_LOGI(TAG, "[APP] Startup..");
     ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
     ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
+    ESP_LOGI(TAG, "[APP] IDF version: %d.%d.%d", ESP_IDF_VERSION_MAJOR, ESP_IDF_VERSION_MINOR, ESP_IDF_VERSION_PATCH);
+
 
 /*
 typedef enum {
@@ -91,13 +90,11 @@ typedef enum {
     esp_log_level_set("event",              ESP_LOG_INFO);
     esp_log_level_set("WIFI01",             ESP_LOG_INFO);
     esp_log_level_set("TASK_PROGRAMMER01",  ESP_LOG_ERROR);
-    //esp_log_level_set("WIFI_EXAMPLE",       ESP_LOG_INFO);           // REMOVE? CHECK
     esp_log_level_set("MOD_MQTT",           ESP_LOG_INFO);
     esp_log_level_set("protoC",             ESP_LOG_INFO);
 
-    // inherited from mqtt examples
     //esp_log_level_set("*", ESP_LOG_INFO);
-    esp_log_level_set("MQTT_CLIENT", ESP_LOG_INFO);
+    esp_log_level_set("MQTT_CLIENT", ESP_LOG_ERROR);
     esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
     esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
     esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
@@ -146,7 +143,10 @@ typedef enum {
     wifi_activate(true, true);
 
     // mqtt_Start. Requiere wifi activada y los servicios que aparecen abajo, que ya han sido activados para la wifi
-    ESP_ERROR_CHECK(mqtt_app_start());
+    
+    //ESP_ERROR_CHECK(mqtt_app_start());
+    esp_err_t err = mqtt_app_start();
+    if (err == ESP_FAIL) { ESP_LOGE(TAG, "mqtt_app_start() FAILED");}
 
     // 2.- SERVICES LOOPS
 
@@ -183,7 +183,10 @@ typedef enum {
     // ENDLESS LOOP, REMOVE AND SUPRESS BY VALID CODE
     // COMPARES SETPOINT vs. MEASURED TEMPERATURE AND TRIGGERS COMMAND ON/OFF
     //TickType_t tick;
-	for(;;) {
+	
+    ESP_LOGI(TAG, "ESP_ID: %s-------------------" ,boardID);    
+
+    for(;;) {
         TickType_t tick = xTaskGetTickCount();
 		vTaskDelay(DELAY_60s);          // Definir cada minuto
 
@@ -198,6 +201,24 @@ typedef enum {
 
         // Select temperature sensor that controls temperature and read room temperature
         // TODO, de momento me lo salto
+
+        // Set mqtt msgs to send
+        char room_tempVal[50], room_tempSp[50], heater_cmd[50], heater_stt[50];
+        strcpy(room_tempVal, "/");
+        strcat(room_tempVal, boardID);
+        strncat(room_tempVal, "/room1/temp/value", 30);      
+
+        strcpy(room_tempSp, "/");
+        strcat(room_tempSp, boardID);
+        strncat(room_tempSp, "/room1/temp/setpoint", 30);
+
+        strcpy(heater_cmd, "/");
+        strcat(heater_cmd, boardID);
+        strncat(heater_cmd, "/room1/temp/heater_cmd", 30);
+
+        strcpy(heater_stt, "/");
+        strcat(heater_stt, boardID);
+        strncat(heater_stt, "/room1/temp/heater_stt", 30);
 
         time_t now1;
         time(&now1);
@@ -219,14 +240,15 @@ typedef enum {
                         temperature_setpoint.value, BMP280_Measures.temperature.value);
 
                     // MQTT Publish
-                    sprintf(valor, "%3.2f", BMP280_Measures.temperature.value);
-                    msg_id = mqtt_client_publish("/home6532/room1/temp/value", valor, 0, 0, 0);
-                    sprintf(valor, "%3.2f", temperature_setpoint.value);
-                    msg_id = mqtt_client_publish("/home6532/room1/temp/setpoint", valor, 0, 0, 0);
-                    msg_id = mqtt_client_publish("/home6532/heater_cmd", "OFF", 0, 0, 0);
-                    if (heater_command.value_actual == 0) {strcpy(valor, "OFF");} else {strcpy(valor, "ON");};
-                    msg_id = mqtt_client_publish("/home6532/heater_stt", valor, 0, 0, 0);
-
+            if (mqtt_connected() == ESP_OK){  
+                        sprintf(valor, "%3.2f", BMP280_Measures.temperature.value);
+                        msg_id = mqtt_client_publish(room_tempVal, valor, 0, 0, 0);
+                        sprintf(valor, "%3.2f", temperature_setpoint.value);
+                        msg_id = mqtt_client_publish(room_tempSp, valor, 0, 0, 0);
+                        msg_id = mqtt_client_publish(heater_cmd , "OFF", 0, 0, 0);
+                        if (heater_command.value_actual == 0) {strcpy(valor, "OFF");} else {strcpy(valor, "ON");};
+                        msg_id = mqtt_client_publish(heater_stt, valor, 0, 0, 0);                        
+                        }
                     }
                 break;
 
@@ -246,13 +268,15 @@ typedef enum {
                         temperature_setpoint.value, BMP280_Measures.temperature.value);
 
                     // MQTT Publish
-                    sprintf(valor, "%3.2f", BMP280_Measures.temperature.value);
-                    msg_id = mqtt_client_publish("/home6532/room1/temp/value", valor, 0, 0, 0);
-                    sprintf(valor, "%3.2f", temperature_setpoint.value);
-                    msg_id = mqtt_client_publish("/home6532/room1/temp/setpoint", valor, 0, 0, 0);
-                    msg_id = mqtt_client_publish("/home6532/heater_cmd", "ON", 0, 0, 0);       
-                    if (heater_command.value_actual == 0) {strcpy(valor, "OFF");} else {strcpy(valor, "ON");};
-                    msg_id = mqtt_client_publish("/home6532/heater_stt", valor, 0, 0, 0);
+            if (mqtt_connected() == ESP_OK){                  
+                        sprintf(valor, "%3.2f", BMP280_Measures.temperature.value);
+                        msg_id = mqtt_client_publish(room_tempVal, valor, 0, 0, 0);
+                        sprintf(valor, "%3.2f", temperature_setpoint.value);
+                        msg_id = mqtt_client_publish(room_tempSp, valor, 0, 0, 0);
+                        msg_id = mqtt_client_publish(heater_cmd, "ON", 0, 0, 0);       
+                        if (heater_command.value_actual == 0) {strcpy(valor, "OFF");} else {strcpy(valor, "ON");};
+                        msg_id = mqtt_client_publish(heater_stt, valor, 0, 0, 0);
+                        }
                     }
                 break;
 
@@ -269,14 +293,18 @@ typedef enum {
                     BMP280_Measures.temperature.value, BMP280_Measures.temperature.displayUnit, BMP280_Measures.temperature.quality, 
                     strftime_sync_buf);
 
-                    // MQTT Publish
-            sprintf(valor, "%3.2f", BMP280_Measures.temperature.value);
-            msg_id = mqtt_client_publish("/home6532/room1/temp/value", valor, 0, 0, 0);
-            sprintf(valor, "%3.2f", temperature_setpoint.value);
-            msg_id = mqtt_client_publish("/home6532/room1/temp/setpoint", valor, 0, 0, 0);
-            if (heater_command.value_actual == 0) {strcpy(valor, "OFF");} else {strcpy(valor, "ON");};
-            msg_id = mqtt_client_publish("/home6532/heater_stt", valor, 0, 0, 0);
-
+            // MQTT Publish
+            if (mqtt_connected() == ESP_OK){              
+                sprintf(valor, "%3.2f", BMP280_Measures.temperature.value);
+                msg_id = mqtt_client_publish(room_tempVal, valor, 0, 0, 0);
+                sprintf(valor, "%3.2f", temperature_setpoint.value);
+                msg_id = mqtt_client_publish(room_tempSp, valor, 0, 0, 0);
+                if (heater_command.value_actual == 0) {strcpy(valor, "OFF");} else {strcpy(valor, "ON");};
+                msg_id = mqtt_client_publish(heater_stt, valor, 0, 0, 0);
+                }
+            else {
+                ESP_LOGI(TAG, "MQTT messaging not active");
+            }    
             }
 		}
 }
